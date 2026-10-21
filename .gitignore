@@ -1,0 +1,30 @@
+# Resultados e vídeos (pesados e com conteúdo interno)
+saida/
+videos_do_drive/
+*.mp4
+*.mov
+*.MOV
+*.avi
+*.mkv
+*.webm
+*.m4v
+*.parte
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Chaves e configurações locais
+.env
+.env.*
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

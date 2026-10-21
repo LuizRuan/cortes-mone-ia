@@ -1,0 +1,11 @@
+# Requer também o FFmpeg instalado e no PATH (não é pacote Python).
+#   Windows: winget install Gyan.FFmpeg
+#   macOS:   brew install ffmpeg
+#   Linux:   sudo apt install ffmpeg
+
+faster-whisper>=1.1      # Whisper (pesos da OpenAI) via CTranslate2
+gradio>=6,<7             # interface web
+httpx>=0.27              # API do Groq (transcrição e escolha dos cortes na nuvem, plano gratuito)
+anthropic>=0.40          # opcional: escolha dos cortes pelo Claude (precisa de ANTHROPIC_API_KEY, pago)
+
+pytest>=8                # só para rodar os testes
