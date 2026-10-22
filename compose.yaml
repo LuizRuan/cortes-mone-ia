@@ -11,6 +11,12 @@ services:
       CORTES_GROQ_WHISPER: ${CORTES_GROQ_WHISPER:-whisper-large-v3-turbo}
       CORTES_GROQ_LLM: ${CORTES_GROQ_LLM:-openai/gpt-oss-120b}
       CORTES_LLM_MODEL: ${CORTES_LLM_MODEL:-claude-sonnet-5-5}
+      CORTES_IA: ${CORTES_IA:-}
+      CORTES_WHISPER_LOCAL: ${CORTES_WHISPER_LOCAL:-small}
+      CORTES_OLLAMA_MODEL: ${CORTES_OLLAMA_MODEL:-qwen3:1.7b}
+      # O Ollama roda no Windows, fora do contêiner.
+      CORTES_OLLAMA_URL: http://host.docker.internal:11434
+      CORTES_OLLAMA_CTX: ${CORTES_OLLAMA_CTX:-8192}
       TZ: America/Sao_Paulo
     volumes:
       - type: bind
@@ -23,6 +29,8 @@ services:
       - transcricoes:/cache
       - uploads:/uploads
       - studio:/studio
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/api/health', timeout=5).close()"]
       interval: 30s

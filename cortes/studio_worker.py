@@ -5,8 +5,8 @@ import threading
 import time
 from dataclasses import asdict
 
-from .cloud import Groq, WHISPER_MODEL
 from .config import Cancelled
+from .local_ai import editor, transcription
 from .media import probe, detect_silences
 from .segments import compute_keep, merge
 from .transcribe import transcribe, Transcript, Sentence, Word
@@ -89,7 +89,8 @@ class Worker:
         store, folder = self.store, self.store.directory(key)
         data = store.get(key)
         src = folder / ('source' + data['extension'])
-        client = Groq()  # Fail clearly before expensive work if not configured.
+        client = editor()  # Fail clearly before expensive work if not configured.
+        engine, local_model, whisper_name = transcription()
         store.update(key, status='processing', error=None)
         metrics = data.get('timings', {})
         def stage(name, fn):
@@ -100,13 +101,14 @@ class Worker:
             return result
         info = probe(src)
         proxy, audio = stage('proxy', lambda: prepare(src, folder, info, lambda f: self.notify(key, 'Preparando vídeo', f)))
-        transcript_key = hashlib.sha256((data['source_hash'] + WHISPER_MODEL + '|pt|transcript-v1').encode()).hexdigest()[:20]
+        transcript_key = hashlib.sha256((data['source_hash'] + whisper_name + '|pt|transcript-v1').encode()).hexdigest()[:20]
         transcript_path = folder / f'transcript-{transcript_key}.json'
         if transcript_path.exists():
             saved = json.loads(transcript_path.read_text(encoding='utf-8'))
             transcript = Transcript(saved['language'], [Sentence(s['start'], s['end'], s['text'], [Word(**w) for w in s['words']]) for s in saved['sentences']])
         else:
-            transcript = stage('transcription', lambda: transcribe(audio, 'groq', 'small', 'pt', lambda f, label: self.notify(key, 'Transcrevendo · ' + label, f), client=client))
+            transcript = stage('transcription', lambda: transcribe(audio, engine, local_model, 'pt', lambda f, label: self.notify(key, 'Transcrevendo · ' + label, f),
+                                                                   client=client if engine == 'groq' else None))
             atomic_json(transcript_path, asdict(transcript))
         transcript = complete_sentences(transcript)
         atomic_json(folder / f'editorial-transcript-{transcript_key}.json', asdict(transcript))
