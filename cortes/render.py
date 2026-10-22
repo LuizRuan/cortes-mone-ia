@@ -53,7 +53,7 @@ def _filter_graph(segments: list[Interval], offset: float, fit: str) -> str:
     n = len(segments)
     parts = [
         f"[0:v]split={n}" + "".join(f"[v{k}]" for k in range(n)),
-        f"[0:a]asplit={n}" + "".join(f"[a{k}]" for k in range(n)),
+        f"[0:a]aresample=async=1:first_pts=0,asplit={n}" + "".join(f"[a{k}]" for k in range(n)),
     ]
     for k, (start, end) in enumerate(segments):
         s, e = start - offset, end - offset
@@ -75,6 +75,7 @@ def render(
     vertical: bool = False,
     max_side: int = 1080,
     progress: Callable[[float], None] | None = None,
+    video_filter: str = "",
 ) -> Path:
     """Exporta para `dst` (MP4) apenas os `segments` de `src`, na ordem dada.
 
@@ -87,7 +88,7 @@ def render(
     chunks = [segments[k:k + CHUNK] for k in range(0, len(segments), CHUNK)]
     notify = progress or (lambda fraction: None)
     total = total_duration(segments)
-    fit = _fit(max_side, vertical)
+    fit = video_filter + _fit(max_side, vertical)
 
     # Temporários ao lado da saída: mesmo disco, e somem sozinhos ao final.
     with tempfile.TemporaryDirectory(dir=dst.parent, prefix=".cortes_") as tmp_name:

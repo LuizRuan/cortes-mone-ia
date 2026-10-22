@@ -1,0 +1,24 @@
+{
+  "fixture": "20 seconds, 640x360, 30fps; synthetic tone/video; simulated transcript and editorial AI",
+  "source_bytes": 5062823,
+  "proxy_bytes": 398111,
+  "preview_seconds": 2.485,
+  "original_export_seconds": 1.406,
+  "reuse_seconds": 0.0,
+  "peak_rss_parent_and_children_mb": 165.9,
+  "disk_bytes": 9268011,
+  "stage_seconds": {
+    "proxy": 0.86,
+    "transcription": 0.0,
+    "stories": 0.08,
+    "preview:a0267e24d47eb21b": 0.8
+  },
+  "preview_resolution": [
+    480,
+    270
+  ],
+  "original_resolution": [
+    640,
+    360
+  ]
+}
