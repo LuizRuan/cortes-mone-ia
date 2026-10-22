@@ -25,7 +25,117 @@ No Premiere:
 
 Se o XML for aberto em outro computador, o Premiere pede para localizar o vídeo (**Vincular mídia**): basta apontar o arquivo.
 
-## Como rodar (Windows)
+## Como rodar com Docker Compose (recomendado)
+
+Instale o [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/)
+com suporte a WSL 2 e use **contêineres Linux**. Não é necessário instalar Python
+nem FFmpeg no computador. A imagem inclui a interface, o FFmpeg e o Whisper
+para CPU; a transcrição pelo Groq também está disponível.
+
+Na pasta do projeto, no PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+New-Item -ItemType Directory -Force entrada, saida, videos_do_drive
+# Opcional: edite .env e preencha GROQ_API_KEY ou ANTHROPIC_API_KEY.
+docker compose up -d --build
+```
+
+Abra **http://localhost:7860** neste computador ou
+**http://IP-DO-COMPUTADOR:7860** em outro computador da rede. No Windows,
+`ipconfig` mostra o endereço IPv4; permita a porta TCP escolhida no firewall
+da rede privada, se necessário. A porta padrão é 7860 e pode ser alterada
+com `CORTES_PORT` no `.env`.
+
+A interface está disponível na rede **sem login**. Todos usam a mesma fila,
+com um processamento por vez; o botão Cancelar interrompe o trabalho em
+execução, inclusive quando iniciado por outra pessoa. Esta configuração
+é destinada à rede local, sem publicação na internet.
+
+### Vídeos, caminhos e arquivos gerados
+
+- Coloque seus vídeos em `entrada/` e informe **`/entrada/video.mp4`** na interface.
+  Essa pasta é montada somente para leitura.
+- Para usar uma pasta existente sem copiar os vídeos, configure no `.env`, por
+  exemplo, `CORTES_INPUT_DIR="C:/Users/seu-usuario/Videos"`. Use barras `/` e
+  mantenha o caminho `/entrada/...` na interface. Caminhos como `C:\Users\...`
+  não existem dentro do contêiner. Uma pessoa acessando por outro computador
+  também usa as pastas do servidor ou envia um arquivo pelo navegador.
+- Links públicos do Drive e upload pelo navegador continuam funcionando.
+- Os resultados aparecem em `saida/` no host; os vídeos do Drive ficam em
+  `videos_do_drive/<id>/<nome-original>`. Essas pastas sobrevivem à remoção
+  do contêiner.
+- Modelos do Whisper e caches de transcrição/LLM ficam em volumes nomeados.
+  O modelo local é baixado no primeiro uso; as próximas execuções o reutilizam.
+  Uploads do navegador e arquivos temporários de processamento não são persistidos.
+
+No **Premiere do Windows**, importe o XML e use **Vincular mídia** para localizar
+o original: o XML gerado no Docker contém caminhos Linux, como `/entrada/...`
+ou `/app/videos_do_drive/...`. Para um vídeo baixado do Drive, aponte para o
+arquivo correspondente em `videos_do_drive/` no host e preserve essa cópia.
+As sequências continuam ligadas ao original, sem renderização adicional.
+
+### Operação e linha de comando
+
+```powershell
+docker compose logs -f cortes          # acompanhar inicialização e erros
+docker compose ps                     # estado e healthcheck
+docker compose down                   # parar, preservando dados e caches
+docker compose up -d --build           # reconstruir após atualizar o código
+docker compose run --rm cortes python cli.py --help
+docker compose run --rm cortes python cli.py /entrada/video.mp4 --saida /app/saida/cli --nuvem --vertical
+```
+
+Omita `--nuvem` para transcrição local em CPU. A CLI usa a mesma imagem e os
+mesmos volumes; execute-a quando a interface estiver ociosa para evitar
+processamentos simultâneos. Alterações no `.env` são aplicadas com
+`docker compose up -d`, que recria o serviço quando necessário.
+
+`docker compose down` preserva os volumes de modelos e transcrições.
+**`docker compose down -v` remove esses caches**, exigindo baixar os modelos
+e processar novamente. As pastas de entrada, saída e vídeos do Drive no host
+não são apagadas por esse comando.
+
+No Linux, crie as pastas antes de subir o serviço e dê permissão de escrita
+ao usuário do contêiner (UID/GID 1000) nas pastas de saída e downloads:
+
+```sh
+cp .env.example .env
+mkdir -p entrada saida videos_do_drive
+sudo chown 1000:1000 saida videos_do_drive
+docker compose up -d --build
+```
+
+A pasta de entrada e seus vídeos precisam ser legíveis pelo UID 1000. No
+Docker Desktop para Windows, permita o compartilhamento da pasta caso solicitado.
+
+### Configuração e testes
+
+O `.env.example` lista as variáveis encaminhadas pelo Compose. Não versione
+o `.env`: as chaves são fornecidas ao executar o contêiner, sem entrar na imagem.
+Para usar apenas processamento local, deixe as duas chaves vazias. Escolher
+transcrição local não desativa a seleção de cortes por LLM se houver uma chave.
+
+A imagem define `GRADIO_SERVER_NAME=0.0.0.0`, `GRADIO_SERVER_PORT=7860`,
+`CORTES_OPEN_BROWSER=false`, `CORTES_CACHE_DIR=/cache` e
+`HF_HOME=/home/app/.cache/huggingface`. A execução direta mantém o servidor
+local e a abertura automática do navegador. `CORTES_CACHE_DIR` também pode
+ser usado fora do Docker; sem ele, o cache continua na pasta temporária
+`cortes_ia_transcricoes`.
+
+Para validar a configuração e executar os testes na imagem (APIs e modelos
+são simulados; os testes de mídia usam FFmpeg real):
+
+```powershell
+docker compose config --quiet
+docker compose build
+docker compose run --rm -e GROQ_API_KEY= -e ANTHROPIC_API_KEY= cortes python -m pytest -q
+```
+
+O teste opcional de leitura independente do XML é ignorado quando o
+OpenTimelineIO não está instalado.
+
+## Como rodar diretamente com Python (Windows)
 
 Pré-requisitos: Python 3.10+ e FFmpeg (`winget install Gyan.FFmpeg`).
 
@@ -48,6 +158,9 @@ Os arquivos exportados ficam em `saida\<nome-do-vídeo>_<data>` dentro da pasta 
 Pela linha de comando: `py cli.py video.mp4 --nuvem --vertical` (veja `py cli.py --help`).
 
 ## Chave gratuita do Groq (recomendado)
+
+**No Docker:** preencha `GROQ_API_KEY` no `.env` e rode `docker compose up -d`.
+Os passos com `setx` abaixo se aplicam à execução direta com Python.
 
 Com a chave, a transcrição roda na nuvem (Whisper large-v3-turbo, mais preciso que os modelos que cabem num notebook) e um LLM escolhe os cortes. Sem a chave, tudo roda no computador e a escolha é feita por uma heurística bem mais fraca.
 

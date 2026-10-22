@@ -30,7 +30,12 @@ import numpy as np
 
 from .segments import Interval
 
-CACHE_DIR = Path(tempfile.gettempdir()) / "cortes_ia_transcricoes"
+def _cache_dir() -> Path:
+    configured = os.environ.get("CORTES_CACHE_DIR", "").strip()
+    return Path(configured).expanduser() if configured else Path(tempfile.gettempdir()) / "cortes_ia_transcricoes"
+
+
+CACHE_DIR = _cache_dir()
 CHUNK_S = 600.0      # tamanho-alvo de cada bloco
 SEARCH_S = 90.0      # janela em volta do alvo onde se procura o ponto mais silencioso
 RATE = 16000

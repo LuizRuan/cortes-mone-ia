@@ -1,5 +1,6 @@
 # Resultados e vídeos (pesados e com conteúdo interno)
 saida/
+entrada/
 videos_do_drive/
 *.mp4
 *.mov
@@ -21,6 +22,7 @@ venv/
 # Chaves e configurações locais
 .env
 .env.*
+!.env.example
 
 # Sistema
 Thumbs.db

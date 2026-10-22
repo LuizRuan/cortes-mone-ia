@@ -38,6 +38,15 @@ CANCEL = threading.Event()
 _clock = visual.clock
 
 
+def launch_options() -> dict:
+    """Mantém o uso local e permite configurar o servidor no contêiner."""
+    return {
+        "server_name": os.environ.get("GRADIO_SERVER_NAME", "127.0.0.1"),
+        "server_port": int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
+        "inbrowser": os.environ.get("CORTES_OPEN_BROWSER", "true").lower() in ("1", "true", "yes"),
+    }
+
+
 def _reporter(progress):
     def notify(fraction: float, label: str) -> None:
         if CANCEL.is_set():
@@ -215,21 +224,23 @@ with gr.Blocks(title="Cortes · Monetali") as demo:
                 silence_db, min_silence, padding, remove_non_speech],
         outputs=[summary, suggestions, transcript, analysis_state, preview, files, export_note],
         show_progress_on=[summary],
+        concurrency_id="processamento", concurrency_limit=1,
     )
     export_btn.click(
         run_export,
         inputs=[analysis_state, suggestions, full_video],
         outputs=[export_note, files, preview],
         show_progress_on=[export_note],
+        concurrency_id="processamento", concurrency_limit=1,
     )
-    premiere_btn.click(run_premiere, inputs=[analysis_state, suggestions], outputs=[export_note, files])
+    premiere_btn.click(run_premiere, inputs=[analysis_state, suggestions], outputs=[export_note, files],
+                       concurrency_id="processamento", concurrency_limit=1)
     # Fora da fila: precisa rodar enquanto a análise ocupa o único lugar dela.
     cancel_btn.click(lambda: CANCEL.set(), None, None, queue=False)
 
 if __name__ == "__main__":
     # Prioridade baixa: o processamento usa a CPU livre sem travar o resto da máquina.
     lower_priority()
-    # Só escuta em 127.0.0.1: a interface não tem login, então não fica exposta na rede.
-    # inbrowser: abre o navegador sozinho quando o programa termina de carregar.
-    demo.launch(server_name="127.0.0.1", server_port=7860, allowed_paths=[str(OUTPUT_ROOT)], inbrowser=True,
+    # Execução direta é local; a imagem Docker configura acesso pela rede.
+    demo.launch(**launch_options(), allowed_paths=[str(OUTPUT_ROOT)],
                 theme=visual.THEME, css=visual.CSS, head=visual.HEAD)
