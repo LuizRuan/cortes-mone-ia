@@ -8,9 +8,15 @@ Funciona em duas etapas:
 2. **Exportar**: gera só os cortes marcados. O tempo depende da duração do corte, não do vídeo.
    Ou **só o XML para o Premiere**, instantâneo (veja abaixo).
 
+Na interface, adicione um vídeo pelo link, caminho ou upload e clique em
+**Analisar vídeo**. O padrão sugere até 8 cortes de 20 a 60 segundos, em
+vertical. Depois, mantenha os trechos desejados marcados e clique em
+**Gerar vídeos dos cortes selecionados**. Os ajustes opcionais ficam em
+**Personalizar cortes e ajustes**; a exportação aparece após a análise.
+
 ## Levando os cortes para o Premiere
 
-O botão "Só gerar XML para o Premiere" cria `<vídeo>_premiere.xml` sem renderizar nada; a exportação em MP4 também gera esse arquivo. Ele contém:
+Em "Editar no Premiere ou exportar o vídeo inteiro", o botão "Gerar arquivo para o Premiere (.xml)" cria `<vídeo>_premiere.xml` sem renderizar nada; a exportação em MP4 também gera esse arquivo. Ele contém:
 
 - uma **sequência por corte marcado**, já sem as pausas, com o motivo da escolha num marcador;
 - uma sequência com a **gravação inteira sem pausas**.

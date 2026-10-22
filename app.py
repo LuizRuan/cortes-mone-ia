@@ -125,7 +125,7 @@ def run_analysis(path_text, upload, engine, model, language, num, clip_min, clip
     transcript = "\n".join(f"[{_clock(s.start)}] {s.text}" for s in (a.transcript.sentences if a.transcript else []))
     hidden = gr.update(value=None, visible=False)
     return (visual.summary(a), gr.update(choices=choices, value=[k for _, k in choices]), transcript, a,
-            hidden, hidden, "")
+            hidden, hidden, "", gr.update(visible=True))
 
 
 @_friendly_errors
@@ -155,74 +155,68 @@ with gr.Blocks(title="Cortes · Monetali") as demo:
     gr.HTML(visual.header(bool(api_key())))
     analysis_state = gr.State(None)
 
-    with gr.Row(equal_height=False):
-        # ----- Passo 1: vídeo e ajustes -------------------------------------
-        with gr.Column(scale=5):
+    with gr.Row(equal_height=False, elem_id="workspace"):
+        with gr.Column(scale=4, min_width=300):
             with gr.Group(elem_classes="painel"):
-                gr.HTML(visual.step(1, "Vídeo", "Cole o link do Google Drive ou o caminho do arquivo no computador."))
+                gr.HTML(visual.step(1, "Adicione seu vídeo", "Cole um link público do Google Drive ou o caminho do vídeo."))
                 path_text = gr.Textbox(
                     show_label=False, container=False, elem_id="caminho",
-                    placeholder="https://drive.google.com/file/d/…  ou  C:\\Users\\…\\video.mp4",
+                    placeholder="Cole o link ou o caminho do vídeo…",
                 )
-                gr.HTML('<p class="nota-final" style="padding:8px 2px 0">No Google Drive: botão direito no vídeo, '
-                        'Compartilhar, Copiar link. O vídeo precisa estar como "Qualquer pessoa com o link". '
-                        'No computador: Shift + botão direito no vídeo, Copiar como caminho.</p>')
+                gr.HTML('<p class="nota-final" style="text-align:center;margin:8px 0">ou envie um arquivo</p>')
+                upload = gr.File(label="Solte seu vídeo aqui", file_types=sorted(ALLOWED_EXTENSIONS),
+                                 type="filepath", height=150, elem_id="upload-video")
+                gr.HTML('<p class="nota-final">Por padrão: até 8 cortes de 20 a 60 segundos, em formato vertical.</p>')
+                analyze_btn = gr.Button("Analisar vídeo", variant="primary", size="lg", elem_id="analisar")
+                cancel_btn = gr.Button("Cancelar processamento", size="sm", elem_id="cancelar")
 
-            with gr.Accordion("Enviar um arquivo pequeno em vez disso", open=False):
-                upload = gr.File(show_label=False, file_types=sorted(ALLOWED_EXTENSIONS), type="filepath")
-
-            with gr.Accordion("Cortes", open=True):
-                num = gr.Slider(1, 20, value=8, step=1, label="Quantos cortes sugerir")
+            with gr.Accordion("Personalizar cortes e ajustes", open=False, elem_id="ajustes"):
+                num = gr.Slider(1, 20, value=8, step=1, label="Quantidade de cortes")
                 with gr.Row():
-                    clip_min = gr.Slider(5, 120, value=20, step=5, label="Duração mínima (s)")
-                    clip_max = gr.Slider(10, 180, value=60, step=5, label="Duração máxima (s)")
-                vertical = gr.Checkbox(value=True, label="MP4 em 9:16 para Reels e Shorts (recorte central)")
-                resolution = gr.Dropdown(list(RESOLUTIONS), value="1080p (Full HD)", label="Resolução máxima do MP4")
-
-            with gr.Accordion("Transcrição", open=False):
+                    clip_min = gr.Slider(5, 120, value=20, step=5, label="Mínimo (segundos)")
+                    clip_max = gr.Slider(10, 180, value=60, step=5, label="Máximo (segundos)")
+                vertical = gr.Checkbox(value=True, label="Vídeo vertical para Reels e Shorts (recorte central)")
+                resolution = gr.Dropdown(list(RESOLUTIONS), value="1080p (Full HD)", label="Qualidade do vídeo")
+                gr.Markdown("**Transcrição**")
                 engine = gr.Radio([CLOUD, LOCAL], value=CLOUD if api_key() else LOCAL, label="Onde transcrever",
-                                  info="Na nuvem o computador fica livre, mas o áudio é enviado ao Groq.")
-                with gr.Row():
-                    model = gr.Dropdown(WHISPER_MODELS, value="base", label="Modelo local",
-                                        info="Maior é mais preciso e bem mais lento.")
-                    language = gr.Dropdown(["pt", "en", "es", "auto"], value="pt", label="Idioma")
+                                  info="Na nuvem, o áudio é enviado ao Groq.")
+                model = gr.Dropdown(WHISPER_MODELS, value="base", label="Modelo para transcrição local",
+                                    info="Modelos maiores são mais precisos e mais lentos.")
+                language = gr.Dropdown(["pt", "en", "es", "auto"], value="pt", label="Idioma do vídeo")
+                gr.Markdown("**Remoção de pausas**")
+                silence_db = gr.Slider(-60, -15, value=-35, step=1, label="Sensibilidade ao silêncio (dB)",
+                                       info="Mais perto de 0 remove mais trechos.")
+                min_silence = gr.Slider(0.3, 3.0, value=0.6, step=0.1, label="Pausa mínima (segundos)")
+                padding = gr.Slider(0.0, 0.4, value=0.12, step=0.01, label="Folga em volta da fala (segundos)")
+                remove_non_speech = gr.Checkbox(value=True, label="Remover música e trechos sem fala")
 
-            with gr.Accordion("Pausas e silêncio", open=False):
-                silence_db = gr.Slider(-60, -15, value=-35, step=1, label="Sensibilidade (dB)",
-                                       info="Mais perto de 0 corta mais. Com ruído de fundo, use -30.")
-                min_silence = gr.Slider(0.3, 3.0, value=0.6, step=0.1, label="Pausa mínima para cortar (s)")
-                padding = gr.Slider(0.0, 0.4, value=0.12, step=0.01, label="Folga em volta da fala (s)")
-                remove_non_speech = gr.Checkbox(value=True, label="Remover trechos sem fala, como música e ruído")
-
-            with gr.Row():
-                analyze_btn = gr.Button("Analisar vídeo", variant="primary", size="lg", scale=4, elem_id="analisar")
-                cancel_btn = gr.Button("Cancelar", variant="stop", size="lg", scale=1, elem_id="cancelar")
-
-        # ----- Passos 2 e 3: revisar e exportar ------------------------------
-        with gr.Column(scale=7):
+        with gr.Column(scale=6, min_width=300):
             with gr.Group(elem_classes="painel"):
-                gr.HTML(visual.step(2, "Revisar", "Desmarque os cortes que não quiser."))
+                gr.HTML(visual.step(2, "Escolha seus cortes", "Após a análise, mantenha marcados os trechos que você gostou."))
                 summary = gr.HTML(visual.EMPTY_SUMMARY, elem_id="resumo", padding=False)
                 suggestions = gr.CheckboxGroup(choices=[], show_label=False, container=False, elem_id="sugestoes")
 
-            with gr.Group(elem_classes="painel"):
-                gr.HTML(visual.step(3, "Exportar", "O XML abre no Premiere na hora. O MP4 renderiza cada corte."))
-                with gr.Row():
-                    premiere_btn = gr.Button("Gerar XML para o Premiere", variant="primary", elem_id="premiere")
-                    export_btn = gr.Button("Exportar cortes em MP4", variant="secondary", elem_id="mp4")
-                full_video = gr.Checkbox(value=False, label="No MP4, incluir a gravação inteira sem pausas (demora)")
+            with gr.Group(elem_classes="painel", visible=False) as export_panel:
+                gr.HTML(visual.step(3, "Tudo pronto para exportar", "Gere os vídeos dos cortes selecionados e baixe os arquivos abaixo."))
+                export_btn = gr.Button("Gerar vídeos dos cortes selecionados", variant="primary", elem_id="mp4")
+                with gr.Accordion("Editar no Premiere ou exportar o vídeo inteiro", open=False):
+                    premiere_btn = gr.Button("Gerar arquivo para o Premiere (.xml)", elem_id="premiere")
+                    full_video = gr.Checkbox(value=False, label="Incluir também o vídeo inteiro sem pausas (mais demorado)")
                 export_note = gr.Markdown(elem_classes="nota-final")
-                files = gr.Files(label="Arquivos gerados", visible=False)
-                preview = gr.Video(label="Primeiro corte", visible=False)
+                files = gr.Files(label="Baixe seus arquivos", visible=False)
+                preview = gr.Video(label="Prévia do primeiro corte", visible=False)
 
-            with gr.Accordion("Transcrição completa", open=False):
+            with gr.Accordion("Ver transcrição do vídeo", open=False):
                 transcript = gr.Textbox(show_label=False, lines=14, max_lines=30)
+
+    upload.upload(lambda: "", outputs=path_text, queue=False)
+    path_text.input(lambda: None, outputs=upload, queue=False)
 
     analyze_btn.click(
         run_analysis,
         inputs=[path_text, upload, engine, model, language, num, clip_min, clip_max, vertical, resolution,
                 silence_db, min_silence, padding, remove_non_speech],
-        outputs=[summary, suggestions, transcript, analysis_state, preview, files, export_note],
+        outputs=[summary, suggestions, transcript, analysis_state, preview, files, export_note, export_panel],
         show_progress_on=[summary],
         concurrency_id="processamento", concurrency_limit=1,
     )

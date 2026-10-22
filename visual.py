@@ -9,129 +9,115 @@ from __future__ import annotations
 from html import escape
 
 import gradio as gr
+from gradio.themes.utils.fonts import Font
 
 from cortes import segments
 
-AZUL = "#01619E"
-AZUL_ESCURO = "#014C7C"
-NOITE = "#0B2A42"
-DOURADO = "#F5C100"
-FUNDO = "#EEF3F7"
-TEXTO = "#1E2B36"
-SUAVE = "#5B6B78"
-LINHA = "#D5DEE6"
+AZUL = "#2563EB"
+AZUL_ESCURO = "#1D4ED8"
+NOITE = "#172033"
+DOURADO = "#93B4FD"
+FUNDO = "#F7F8FA"
+TEXTO = "#172033"
+SUAVE = "#667085"
+LINHA = "#E5E7EB"
 
 THEME = gr.themes.Base(
-    primary_hue=gr.themes.Color(
-        c50="#E6F0F7", c100="#CCE0EE", c200="#99C1DD", c300="#66A2CC", c400="#3383BB",
-        c500=AZUL, c600="#01578E", c700=AZUL_ESCURO, c800="#01406A", c900="#013457", c950=NOITE,
-    ),
-    neutral_hue="slate",
-    font=[gr.themes.GoogleFont("Archivo"), "system-ui", "sans-serif"],
-    radius_size=gr.themes.sizes.radius_sm,
+    primary_hue="blue", neutral_hue="slate",
+    font=[Font("Segoe UI"), Font("system-ui"), Font("sans-serif")],
+    radius_size=gr.themes.sizes.radius_lg,
 ).set(
-    body_background_fill=FUNDO,
-    body_text_color=TEXTO,
-    body_text_color_subdued=SUAVE,
-    background_fill_secondary="#F6F9FB",
-    block_background_fill="#FFFFFF",
-    block_border_width="0px",
-    block_shadow="none",
-    block_radius="6px",
-    block_padding="18px",
-    block_label_background_fill="transparent",
-    block_label_text_color=SUAVE,
-    block_title_text_color=TEXTO,
-    block_title_text_weight="600",
-    border_color_primary=LINHA,
-    input_background_fill="#FFFFFF",
-    input_border_color=LINHA,
-    input_border_color_focus=AZUL,
-    input_shadow="none",
-    checkbox_background_color_selected=AZUL,
-    checkbox_border_color_selected=AZUL,
-    slider_color=AZUL,
-    color_accent=AZUL,
-    loader_color=AZUL,
-    button_large_radius="6px",
-    button_primary_background_fill=AZUL,
+    body_background_fill=FUNDO, body_background_fill_dark=FUNDO,
+    body_text_color=TEXTO, body_text_color_dark=TEXTO,
+    body_text_color_subdued=SUAVE, body_text_color_subdued_dark=SUAVE,
+    background_fill_primary="#FFFFFF", background_fill_primary_dark="#FFFFFF",
+    background_fill_secondary=FUNDO, background_fill_secondary_dark=FUNDO,
+    block_background_fill="#FFFFFF", block_background_fill_dark="#FFFFFF",
+    block_border_width="0px", block_shadow="none", block_radius="12px", block_padding="16px",
+    block_label_background_fill="transparent", block_label_background_fill_dark="transparent",
+    block_label_text_color=SUAVE, block_label_text_color_dark=SUAVE,
+    block_title_text_color=TEXTO, block_title_text_color_dark=TEXTO,
+    border_color_primary=LINHA, border_color_primary_dark=LINHA,
+    border_color_accent=LINHA, border_color_accent_dark=LINHA,
+    input_background_fill="#FFFFFF", input_background_fill_dark="#FFFFFF",
+    input_border_color=LINHA, input_border_color_dark=LINHA,
+    input_border_color_focus=AZUL, input_shadow="none",
+    button_primary_background_fill=AZUL, button_primary_background_fill_dark=AZUL,
     button_primary_background_fill_hover=AZUL_ESCURO,
-    button_primary_text_color="#FFFFFF",
-    button_primary_shadow="none",
-    button_secondary_background_fill="#FFFFFF",
-    button_secondary_text_color=AZUL,
-    button_cancel_background_fill="transparent",
-    button_cancel_text_color="#B42318",
-    button_cancel_border_color="#E4B4AF",
-    accordion_text_color=TEXTO,
-    layout_gap="14px",
+    button_primary_background_fill_hover_dark=AZUL_ESCURO,
+    button_primary_text_color="#FFFFFF", button_primary_text_color_dark="#FFFFFF",
+    button_primary_shadow="none", button_large_radius="10px",
+    button_secondary_background_fill="#FFFFFF", button_secondary_background_fill_dark="#FFFFFF",
+    button_secondary_text_color=TEXTO, button_secondary_text_color_dark=TEXTO,
+    accordion_text_color=TEXTO, accordion_text_color_dark=TEXTO,
+    layout_gap="16px",
 )
 
-# Archivo com o eixo de largura (wdth): o título usa a versão expandida.
-HEAD = ('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-        '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">')
+HEAD = ""
 
 CSS = f"""
-.gradio-container {{ max-width: 1280px !important; margin: 0 auto !important; }}
+.gradio-container {{ max-width: 1120px !important; margin: 0 auto !important; padding: 32px 24px 48px !important; }}
 footer {{ display: none !important; }}
-
-/* Cabeçalho */
-#cab {{ background: {NOITE}; color: #fff; border-radius: 8px; padding: 26px 30px;
-        display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }}
-#cab h1 {{ font-size: 2.6rem; line-height: 1; margin: 0; font-weight: 800; font-stretch: 125%;
-           letter-spacing: -0.02em; color: #fff; }}
-#cab p {{ margin: 10px 0 0; color: #B9CBDA; font-size: 1rem; max-width: 52ch; }}
-#cab .chave {{ display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px;
-               font-size: .88rem; border: 1px solid rgba(255,255,255,.18); color: #fff; white-space: nowrap; }}
-#cab .chave i {{ width: 8px; height: 8px; border-radius: 50%; background: #7C8C99; display: inline-block; }}
-#cab .chave.ok i {{ background: {DOURADO}; }}
-
-/* Painéis brancos (o Group do Gradio vem cinza por padrão) */
-.painel, .painel > div, .painel .block, .painel .form {{ background: #fff !important; border: none !important; }}
-.painel {{ padding: 6px 4px 8px !important; border-radius: 6px !important; gap: 0 !important; }}
-#caminho input, #caminho textarea {{ border: 1px solid {LINHA} !important; font-size: 1rem; padding: 11px 12px !important; }}
-
-/* Títulos dos passos */
-.passo h2 {{ display: flex; align-items: baseline; gap: 12px; margin: 4px 0 2px; font-size: 1.25rem;
-             font-weight: 700; font-stretch: 112%; color: {NOITE}; }}
-.passo h2 b {{ font-size: .95rem; color: {AZUL}; font-weight: 800; font-variant-numeric: tabular-nums; }}
-.passo p {{ margin: 0; color: {SUAVE}; font-size: .92rem; }}
-
-/* Resumo e linha do tempo */
-#resumo .numeros {{ display: flex; gap: 36px; flex-wrap: wrap; margin: 4px 0 18px; }}
-#resumo .numeros div {{ display: flex; flex-direction: column; }}
-#resumo .numeros strong {{ font-size: 1.6rem; font-weight: 700; font-stretch: 112%; color: {NOITE};
-                           font-variant-numeric: tabular-nums; line-height: 1.1; }}
-#resumo .numeros span {{ color: {SUAVE}; font-size: .85rem; }}
-#resumo .vazio {{ color: {SUAVE}; padding: 28px 0 8px; max-width: 60ch; }}
-.fita {{ position: relative; height: 46px; background: #F1F5F8; border-radius: 4px; margin-top: 18px; }}
-.fita .fala {{ position: absolute; top: 17px; height: 12px; background: #BFD6E8; }}
-.fita .corte {{ position: absolute; top: 6px; height: 34px; min-width: 3px; background: {DOURADO};
-                border-radius: 2px; box-shadow: 0 0 0 1px rgba(11,42,66,.15); }}
-.fita .corte span {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
-                     font-size: .75rem; font-weight: 700; color: {NOITE}; font-variant-numeric: tabular-nums; }}
-.regua {{ position: relative; height: 18px; margin-top: 4px; font-size: .75rem; color: {SUAVE};
-          font-variant-numeric: tabular-nums; }}
+#cab {{ display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        padding: 0 0 24px; margin-bottom: 8px; border-bottom: 1px solid {LINHA}; }}
+.brand {{ display: flex; align-items: center; gap: 12px; }}
+.brand-mark {{ display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px;
+               background: {AZUL}; color: white; font-size: 23px; font-weight: 600; }}
+#cab h1 {{ margin: 0; color: {TEXTO}; font-size: 21px; letter-spacing: -.6px; font-weight: 700; line-height: 1.3; }}
+#cab p {{ margin: 2px 0 0; color: {SUAVE}; font-size: 13px; }}
+#cab .chave {{ display: inline-flex; align-items: center; gap: 7px; color: {SUAVE}; font-size: 12px;
+               background: white; border: 1px solid {LINHA}; padding: 7px 10px; border-radius: 20px; }}
+.chave i {{ width: 6px; height: 6px; background: #98A2B3; border-radius: 50%; }}
+.chave.ok i {{ background: #16A36A; }}
+#workspace {{ gap: 24px; align-items: flex-start; }}
+.painel {{ background: white !important; border: 1px solid {LINHA} !important;
+           border-radius: 16px !important; padding: 22px !important; box-shadow: 0 2px 6px #17203303; }}
+.painel > div, .painel .form {{ background: transparent !important; border: none !important; }}
+.painel .block {{ padding: 0 !important; background: transparent !important; border: none !important; }}
+.passo {{ margin-bottom: 18px; }}
+.passo h2 {{ display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font-size: 17px;
+             font-weight: 650; color: {TEXTO}; letter-spacing: -.35px; }}
+.passo h2 b {{ display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+               background: #EFF4FF; color: {AZUL}; font-size: 12px; font-weight: 600; }}
+.passo p {{ margin: 0; color: {SUAVE}; font-size: 13px; line-height: 1.6; }}
+#caminho textarea {{ border: 1px solid {LINHA} !important; border-radius: 10px; padding: 13px !important; font-size: 14px; }}
+#caminho, #caminho .input-container {{ border: none !important; box-shadow: none !important; }}
+#upload-video {{ border: 1px dashed #CBD5E1 !important; border-radius: 12px; background: #FAFBFC !important; }}
+#analisar {{ min-height: 48px; font-size: 14px; font-weight: 600; border-radius: 10px !important; }}
+#cancelar {{ min-height: 36px; color: {SUAVE}; border: none; background: transparent; font-size: 12px; }}
+#ajustes {{ border: 1px solid {LINHA}; border-radius: 12px; box-shadow: none; }}
+#resumo .vazio {{ text-align: center; color: {SUAVE}; padding: 32px 12px 36px; }}
+.empty-icon {{ display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 16px;
+               background: #F0F4FB; border-radius: 16px; color: #8497BA; }}
+#resumo .vazio strong {{ display: block; color: {TEXTO}; font-size: 15px; font-weight: 600; margin-bottom: 8px; }}
+#resumo .vazio p {{ margin: 0 auto; max-width: 32ch; font-size: 13px; line-height: 1.7; }}
+#resumo .numeros {{ display: flex; gap: 28px; flex-wrap: wrap; padding: 8px 0 18px; }}
+.numeros div {{ display: flex; flex-direction: column; gap: 4px; }}
+#resumo .numeros strong {{ font-size: 24px; color: {TEXTO}; font-weight: 650; font-variant-numeric: tabular-nums; }}
+#resumo .numeros span {{ color: {SUAVE}; font-size: 12px; }}
+.fita {{ position: relative; height: 40px; background: #F1F4F8; border-radius: 6px; margin-top: 18px; }}
+.fita .fala {{ position: absolute; top: 15px; height: 10px; background: #CBD5E1; }}
+.fita .corte {{ position: absolute; top: 6px; height: 28px; min-width: 3px; background: {DOURADO}; border-radius: 3px; }}
+.fita .corte span {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; color: {AZUL_ESCURO}; }}
+.regua {{ position: relative; height: 18px; margin-top: 6px; font-size: 11px; color: {SUAVE}; }}
 .regua span {{ position: absolute; transform: translateX(-50%); }}
 .regua span:first-child {{ transform: none; }}
-#resumo .metodo {{ margin-top: 10px; font-size: .82rem; color: {SUAVE}; }}
-
-/* Lista de sugestões: uma linha por corte */
-#sugestoes .wrap {{ display: flex; flex-direction: column; gap: 0 !important; }}
-#sugestoes label {{ width: 100%; margin: 0 !important; padding: 11px 8px !important; border-radius: 0 !important;
-                    border: none !important; border-bottom: 1px solid {LINHA} !important; background: transparent !important;
-                    font-variant-numeric: tabular-nums; line-height: 1.45; }}
-#sugestoes label span {{ white-space: pre-wrap; }}
-#sugestoes label:hover {{ background: #F6F9FB !important; }}
-
-/* Botões */
-#analisar, #premiere, #mp4 {{ font-weight: 600; }}
-#cancelar {{ border: 1px solid #E4B4AF !important; }}
-#mp4 {{ border: 1px solid {AZUL} !important; }}
-.nota-final {{ color: {SUAVE}; font-size: .9rem; }}
-
-*:focus-visible {{ outline: 2px solid {AZUL} !important; outline-offset: 2px; }}
-@media (max-width: 760px) {{ #cab h1 {{ font-size: 2rem; }} #resumo .numeros {{ gap: 20px; }} }}
+#resumo .metodo {{ margin-top: 10px; font-size: 11px; color: {SUAVE}; }}
+#sugestoes .wrap {{ display: flex; flex-direction: column; gap: 8px !important; }}
+#sugestoes label {{ width: 100%; box-sizing: border-box; margin: 0 !important; padding: 14px !important;
+                    border: 1px solid {LINHA} !important; border-radius: 10px !important;
+                    background: white !important; line-height: 1.6; font-size: 13px; }}
+#sugestoes label:has(input:checked) {{ border-color: #B6CEFF !important; background: #F7FAFF !important; }}
+#sugestoes label span {{ white-space: pre-line; }}
+#mp4, #premiere {{ min-height: 44px; font-size: 13px; font-weight: 600; }}
+.nota-final {{ color: {SUAVE}; font-size: 12px; line-height: 1.6; }}
+*:focus-visible {{ outline: 2px solid {AZUL} !important; outline-offset: 3px; }}
+@media (max-width: 760px) {{
+    .gradio-container {{ padding: 20px 14px !important; }}
+    #cab {{ flex-wrap: wrap; }}
+    #workspace {{ gap: 16px; }}
+    .painel {{ padding: 18px !important; }}
+}}
 @media (prefers-reduced-motion: reduce) {{ * {{ transition: none !important; animation: none !important; }} }}
 """
 
@@ -143,13 +129,13 @@ def clock(seconds: float, hours: bool = False) -> str:
 
 
 def header(has_key: bool) -> str:
-    status = ("IA na nuvem ativa (Groq)" if has_key
-              else "Sem chave do Groq: tudo roda neste computador")
+    status = "Groq conectado" if has_key else "Transcrição local"
     return f"""
 <div id="cab">
-  <div>
-    <h1>Cortes</h1>
-    <p>Encontra os melhores trechos de gravações longas e entrega prontos para Reels ou para o Premiere.</p>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">&#9986;</span>
+    <div><h1>Cortes <span style="font-weight:400;color:#98A2B3">/ Monetali</span></h1>
+    <p>Do vídeo longo ao trecho que importa.</p></div>
   </div>
   <span class="chave{' ok' if has_key else ''}"><i></i>{escape(status)}</span>
 </div>"""
@@ -159,8 +145,11 @@ def step(number: int, title: str, hint: str) -> str:
     return f'<div class="passo"><h2><b>{number}</b>{escape(title)}</h2><p>{escape(hint)}</p></div>'
 
 
-EMPTY_SUMMARY = ('<div class="vazio">Cole o caminho do vídeo e clique em Analisar. Os cortes sugeridos aparecem '
-                 'aqui, marcados na linha do tempo da gravação.</div>')
+EMPTY_SUMMARY = '''<div class="vazio">
+<div class="empty-icon" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3Z"/></svg></div>
+<strong>Seus cortes aparecem aqui</strong>
+<p>Adicione um vídeo e clique em Analisar vídeo. Depois, escolha os trechos que quer baixar.</p>
+</div>'''
 
 
 def _ticks(duration: float) -> list[float]:
@@ -199,4 +188,4 @@ def summary(analysis) -> str:
 def choice_label(k: int, h, long_video: bool = False) -> str:
     reason = h.reason.strip().rstrip(".")
     span = f"{clock(h.start, long_video)}–{clock(h.end, long_video)}"
-    return f"{k + 1:02d}    {span}    {h.title}. {reason}. Nota {h.score:g}."
+    return f"{k + 1:02d} · {h.title}\n{span} · {reason}."
