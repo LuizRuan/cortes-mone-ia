@@ -34,6 +34,7 @@ type Clip = {
   original_error?: string;
 };
 type Params = { count: number; min_seconds: number; max_seconds: number };
+type Health = { ai_configured: boolean; ai_provider: "local" | "groq" };
 type Project = {
   id: string;
   name: string;
@@ -143,7 +144,7 @@ function App() {
     [options, setOptions] = useState(false),
     [history, setHistory] = useState(false),
     [deleting, setDeleting] = useState(false);
-  const [groq, setGroq] = useState<boolean | null>(null),
+  const [ai, setAi] = useState<Health | null>(null),
     [uploadProgress, setUploadProgress] = useState(0);
   const input = useRef<HTMLInputElement>(null),
     paused = useRef(false),
@@ -155,8 +156,8 @@ function App() {
     save("cortes-theme", theme);
   }, [theme]);
   useEffect(() => {
-    api<{ groq_configured: boolean }>("/health")
-      .then((x) => setGroq(x.groq_configured))
+    api<Health>("/health")
+      .then(setAi)
       .catch(() => setError("Não foi possível conectar ao servidor."));
     const id =
       new URLSearchParams(location.search).get("project") ||
@@ -579,7 +580,7 @@ function App() {
                     className="primary create-button"
                     disabled={
                       !file ||
-                      groq === false ||
+                      ai?.ai_configured === false ||
                       params.min_seconds > params.max_seconds
                     }
                     onClick={create}
@@ -591,10 +592,15 @@ function App() {
                     <ArrowRight size={18} />
                   </button>
                 )}
-                {groq === false ? (
+                {ai?.ai_configured === false ? (
                   <p className="setup-note">
                     Falta conectar a IA: configure GROQ_API_KEY no .env e
                     reinicie o aplicativo.
+                  </p>
+                ) : ai?.ai_provider === "local" ? (
+                  <p className="privacy-note">
+                    Tudo é processado neste computador, com IA local. Nada é
+                    enviado para a internet.
                   </p>
                 ) : (
                   <p className="privacy-note">

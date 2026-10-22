@@ -169,7 +169,7 @@ def video(tmp_path):
 
 def test_full_pipeline_preview_original_range_and_reuse(client, video, monkeypatch):
     import cortes.studio_worker as module
-    monkeypatch.setattr(module,'Groq',Editor)
+    monkeypatch.setattr(module,'editor',Editor)
     transcriber=Mock(return_value=transcript())
     monkeypatch.setattr(module,'transcribe',transcriber)
     monkeypatch.setenv('GROQ_API_KEY','fixture-key')
@@ -334,3 +334,45 @@ def test_old_heuristic_would_fill_incomplete_story(tmp_path):
         return result
     editor.chat_json=call
     assert select_stories(incomplete,keep,dict(count=5,min_seconds=5,max_seconds=10),editor,tmp_path,lambda *a:None)==[]
+
+
+def test_ai_provider_follows_env_and_key(monkeypatch):
+    from cortes import local_ai
+    monkeypatch.delenv('CORTES_IA', raising=False)
+    monkeypatch.delenv('GROQ_API_KEY', raising=False)
+    assert local_ai.provider() == 'local' and local_ai.missing_setup() is None
+    assert local_ai.transcription() == ('local', 'small', 'local-small')
+    monkeypatch.setenv('GROQ_API_KEY', 'fixture-key')
+    assert local_ai.provider() == 'groq'
+    monkeypatch.setenv('CORTES_IA', 'local')
+    assert local_ai.provider() == 'local'
+    monkeypatch.setenv('CORTES_IA', 'groq')
+    monkeypatch.delenv('GROQ_API_KEY')
+    assert 'GROQ_API_KEY' in local_ai.missing_setup()
+
+
+def test_ollama_streams_structured_answer():
+    import httpx
+    from cortes.local_ai import Ollama
+    sent = {}
+    def handler(request):
+        sent.update(json.loads(request.content))
+        lines = [{'message': {'content': '{"indexes": '}}, {'message': {'content': '[2, 0]}'}, 'done': True}]
+        return httpx.Response(200, content='\n'.join(json.dumps(x) for x in lines))
+    ollama = Ollama(httpx.Client(transport=httpx.MockTransport(handler)))
+    assert ollama.chat_json('sys', 'user', {'type': 'object'}, lambda msg: None) == {'indexes': [2, 0]}
+    assert sent['format'] == {'type': 'object'} and sent['think'] is False
+    assert sent['options']['temperature'] == 0
+
+
+def test_ollama_missing_model_and_offline_have_clear_messages():
+    import httpx
+    from cortes.cloud import CloudError
+    from cortes.local_ai import Ollama
+    missing = Ollama(httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(404, json={'error': 'not found'}))))
+    with pytest.raises(CloudError, match='ollama pull'):
+        missing.chat_json('s', 'u', {}, lambda msg: None)
+    def offline(request):
+        raise httpx.ConnectError('refused')
+    with pytest.raises(CloudError, match='Ollama'):
+        Ollama(httpx.Client(transport=httpx.MockTransport(offline))).chat_json('s', 'u', {}, lambda msg: None)

@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
-from .cloud import api_key
+from .local_ai import missing_setup, provider
 from .config import ALLOWED_EXTENSIONS
 from .media import probe
 from .studio_store import Store
@@ -72,7 +72,7 @@ def create_app(root=None, run_worker=True, static_dir=None):
 
     @app.get('/api/health')
     def health():
-        return {'ok': True, 'groq_configured': bool(api_key()), 'max_bytes': MAX_BYTES, 'chunk_bytes': CHUNK_BYTES}
+        return {'ok': True, 'ai_configured': not missing_setup(), 'ai_provider': provider(), 'max_bytes': MAX_BYTES, 'chunk_bytes': CHUNK_BYTES}
 
     @app.post('/api/projects')
     def new_upload(body: Upload):
@@ -164,8 +164,8 @@ def create_app(root=None, run_worker=True, static_dir=None):
     def start(key: str, params: Parameters):
         with store.lock:
             data = project(key)
-            if not api_key():
-                raise HTTPException(400, 'Configure GROQ_API_KEY no arquivo .env e reinicie o aplicativo.')
+            if missing_setup():
+                raise HTTPException(400, missing_setup())
             if data['status'] in ('uploading', 'validating'):
                 raise HTTPException(409, 'Conclua o upload primeiro.')
             if worker.active == key or data['status'] in ('processing', 'queued'):

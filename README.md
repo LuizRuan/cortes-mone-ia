@@ -20,6 +20,23 @@ O modelo de edição precisa aceitar saída estruturada estrita. Referências:
 [transcrição](https://console.groq.com/docs/speech-to-text) e
 [saída estruturada](https://console.groq.com/docs/structured-outputs).
 
+### IA local, sem chave e sem custo
+
+Com `CORTES_IA=local`, a transcrição usa o faster-whisper e a montagem das
+histórias usa um modelo do [Ollama](https://ollama.com), tudo no computador:
+
+```powershell
+winget install Ollama.Ollama
+ollama pull qwen3:1.7b
+```
+
+O modelo é escolhido por `CORTES_OLLAMA_MODEL`. Referência de memória livre:
+`qwen3:1.7b` cerca de 2 GB, `qwen3:4b` cerca de 3,5 GB, `qwen3:8b` cerca de 6 GB.
+Modelos maiores montam histórias melhores. `CORTES_WHISPER_LOCAL` escolhe o
+Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`). Sem placa de vídeo,
+o processamento local é bem mais lento que o Groq. No Docker, o contêiner
+acessa o Ollama do Windows por `host.docker.internal`.
+
 ```powershell
 docker compose up -d --build
 ```
