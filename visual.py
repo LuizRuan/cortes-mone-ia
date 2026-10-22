@@ -113,8 +113,6 @@ footer {{ display: none !important; }}
 .passo h2 b {{ display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
                background: var(--c-tint); color: var(--c-accent); font-size: 12px; font-weight: 600; }}
 .passo p {{ margin: 0; color: var(--c-muted); font-size: 13px; line-height: 1.6; }}
-#caminho textarea {{ border: 1px solid var(--c-border) !important; border-radius: 10px; padding: 13px !important; font-size: 14px; }}
-#caminho, #caminho .input-container {{ border: none !important; box-shadow: none !important; }}
 #upload-video {{ border: 1px dashed var(--c-speech) !important; border-radius: 12px; background: var(--c-soft) !important; }}
 #analisar {{ min-height: 48px; font-size: 14px; font-weight: 600; border-radius: 10px !important; }}
 #cancelar {{ min-height: 36px; color: var(--c-muted); border: none; background: transparent; font-size: 12px; }}

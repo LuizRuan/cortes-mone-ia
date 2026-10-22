@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     GRADIO_SERVER_PORT=7860 \
     CORTES_OPEN_BROWSER=false \
     CORTES_CACHE_DIR=/cache \
+    GRADIO_TEMP_DIR=/uploads \
     HF_HOME=/home/app/.cache/huggingface \
     GRADIO_ANALYTICS_ENABLED=false
 
@@ -13,8 +14,8 @@ RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg libgomp1 tzdata \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 1000 app \
-    && mkdir -p /app/saida /app/videos_do_drive /entrada /cache /home/app/.cache \
-    && chown -R app:app /app /cache /home/app/.cache
+    && mkdir -p /app/saida /app/videos_do_drive /entrada /cache /uploads /home/app/.cache \
+    && chown -R app:app /app /cache /uploads /home/app/.cache
 
 WORKDIR /app
 COPY requirements.txt ./

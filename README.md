@@ -8,7 +8,7 @@ Funciona em duas etapas:
 2. **Exportar**: gera só os cortes marcados. O tempo depende da duração do corte, não do vídeo.
    Ou **só o XML para o Premiere**, instantâneo (veja abaixo).
 
-Na interface, adicione um vídeo pelo link, caminho ou upload e clique em
+Na interface, arraste um vídeo (ou clique para selecionar) e clique em
 **Analisar vídeo**. O padrão sugere até 8 cortes de 20 a 60 segundos, em
 vertical. Depois, mantenha os trechos desejados marcados e clique em
 **Gerar vídeos dos cortes selecionados**. Os ajustes opcionais ficam em
@@ -62,27 +62,28 @@ com um processamento por vez; o botão Cancelar interrompe o trabalho em
 execução, inclusive quando iniciado por outra pessoa. Esta configuração
 é destinada à rede local, sem publicação na internet.
 
-### Vídeos, caminhos e arquivos gerados
+### Vídeos e arquivos gerados
 
-- Coloque seus vídeos em `entrada/` e informe **`/entrada/video.mp4`** na interface.
-  Essa pasta é montada somente para leitura.
-- Para usar uma pasta existente sem copiar os vídeos, configure no `.env`, por
-  exemplo, `CORTES_INPUT_DIR="C:/Users/seu-usuario/Videos"`. Use barras `/` e
-  mantenha o caminho `/entrada/...` na interface. Caminhos como `C:\Users\...`
-  não existem dentro do contêiner. Uma pessoa acessando por outro computador
-  também usa as pastas do servidor ou envia um arquivo pelo navegador.
-- Links públicos do Drive e upload pelo navegador continuam funcionando.
+- A interface aceita apenas envio de arquivo: arraste o vídeo ou clique na área
+  de upload. O limite por arquivo é **20 GB (20.000.000.000 bytes)**, validado
+  tanto no envio quanto antes da análise. Aguarde o envio terminar antes de analisar.
+- O Gradio recebe os dados em blocos e grava em disco; o processamento recebe
+  o caminho do arquivo, sem carregar o vídeo inteiro na memória.
+- No Docker, os uploads ficam no volume `uploads`, montado em `/uploads`.
+  Reserve espaço no disco do Docker para os vídeos, o áudio temporário e as
+  exportações. Um vídeo de 20 GB exige mais de 20 GB livres no total.
+- A pasta `entrada/` é usada pela linha de comando, montada somente para leitura
+  em `/entrada`. Para outra pasta, configure `CORTES_INPUT_DIR` no `.env`.
 - Os resultados aparecem em `saida/` no host; os vídeos do Drive ficam em
   `videos_do_drive/<id>/<nome-original>`. Essas pastas sobrevivem à remoção
   do contêiner.
 - Modelos do Whisper e caches de transcrição/LLM ficam em volumes nomeados.
   O modelo local é baixado no primeiro uso; as próximas execuções o reutilizam.
-  Uploads do navegador e arquivos temporários de processamento não são persistidos.
+  Os uploads também são persistidos; arquivos temporários de processamento não são.
 
 No **Premiere do Windows**, importe o XML e use **Vincular mídia** para localizar
-o original: o XML gerado no Docker contém caminhos Linux, como `/entrada/...`
-ou `/app/videos_do_drive/...`. Para um vídeo baixado do Drive, aponte para o
-arquivo correspondente em `videos_do_drive/` no host e preserve essa cópia.
+o original: o XML gerado no Docker contém caminhos Linux, como `/uploads/...`.
+Aponte para o vídeo original que você enviou e preserve essa cópia.
 As sequências continuam ligadas ao original, sem renderização adicional.
 
 ### Operação e linha de comando
@@ -101,9 +102,9 @@ mesmos volumes; execute-a quando a interface estiver ociosa para evitar
 processamentos simultâneos. Alterações no `.env` são aplicadas com
 `docker compose up -d`, que recria o serviço quando necessário.
 
-`docker compose down` preserva os volumes de modelos e transcrições.
-**`docker compose down -v` remove esses caches**, exigindo baixar os modelos
-e processar novamente. As pastas de entrada, saída e vídeos do Drive no host
+`docker compose down` preserva os volumes de modelos, transcrições e uploads.
+**`docker compose down -v` remove os uploads e esses caches**, exigindo reenviar
+os vídeos, baixar os modelos e processar novamente. As pastas de entrada, saída e vídeos do Drive no host
 não são apagadas por esse comando.
 
 No Linux, crie as pastas antes de subir o serviço e dê permissão de escrita
@@ -156,12 +157,8 @@ py app.py                      # abre em http://127.0.0.1:7860
 
 Ou dê dois cliques em **`Abrir Cortes.bat`**: o navegador abre sozinho.
 
-No campo do vídeo, cole uma destas opções:
-
-- **Link do Google Drive:** no site do Drive, botão direito no vídeo → Compartilhar → Copiar link. O vídeo precisa estar como **"Qualquer pessoa com o link"**; vídeos restritos à empresa pedem login, e o programa avisa como liberar. O vídeo é baixado para `videos_do_drive\` e reaproveitado nas próximas análises. Se o download cair ou for cancelado, a próxima tentativa continua de onde parou.
-- **Caminho no computador:** no Explorador, Shift + botão direito no arquivo → "Copiar como caminho". O vídeo é lido direto do disco, sem cópia.
-
-O navegador não permite arrastar arquivos do site do Drive para outra página, por isso o link.
+Arraste o arquivo do vídeo para a área de envio ou clique nela para selecionar.
+O limite é 20 GB por arquivo. Se o vídeo estiver no Google Drive, baixe-o primeiro.
 
 Os arquivos exportados ficam em `saida\<nome-do-vídeo>_<data>` dentro da pasta do projeto.
 
@@ -234,7 +231,7 @@ cortes-ia/
 ### Por que é leve com vídeo longo
 
 - **Transcrição em blocos.** O faster-whisper analisa o áudio inteiro de uma vez: medido aqui, 1 h de áudio já passava de 3 GB de RAM, e 4 h passariam de 12 GB. Em blocos de 10 min (cortados na pausa mais próxima), 4 h de áudio ficaram em ~650 MB de pico nos testes, sem contar o modelo.
-- **Sem cópia do vídeo.** O caminho do arquivo é usado direto; o upload pelo navegador fica só para arquivos pequenos.
+- **Vídeo em disco.** O upload pelo navegador é gravado em blocos, com limite de 20 GB. Pela CLI, o caminho local é usado diretamente, sem cópia.
 - **Exportação por trecho.** Cada corte decodifica só a sua janela do vídeo (`-ss` antes do `-i`), então o tempo depende do corte, não das 4 h. Nos testes, uma fonte 4K virou 1080p a cerca de 2 s de processamento por segundo de corte numa máquina de 2 núcleos; um notebook comum deve ser mais rápido.
 - **Cache.** Blocos transcritos e respostas do LLM ficam salvos: reanalisar com outra duração de corte é rápido e não gasta cota.
 - **Prioridade baixa.** O app e o ffmpeg usam a CPU livre sem travar o resto da máquina.

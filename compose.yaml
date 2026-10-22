@@ -21,6 +21,7 @@ services:
       - ./videos_do_drive:/app/videos_do_drive
       - modelos:/home/app/.cache
       - transcricoes:/cache
+      - uploads:/uploads
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/', timeout=5).close()"]
       interval: 30s
@@ -31,3 +32,4 @@ services:
 volumes:
   modelos:
   transcricoes:
+  uploads:

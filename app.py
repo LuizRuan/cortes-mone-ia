@@ -16,7 +16,6 @@ from pathlib import Path
 
 import gradio as gr
 
-from cortes import drive
 from cortes.cloud import CloudError, api_key
 from cortes.config import ALLOWED_EXTENSIONS, WHISPER_MODELS, Cancelled, CutParams, InvalidInput
 from cortes.media import FFmpegError, lower_priority, probe
@@ -27,8 +26,7 @@ import visual
 RESOLUTIONS = {"720p": 720, "1080p (Full HD)": 1080, "Original": 0}
 CLOUD, LOCAL = "Nuvem (Groq, gratuito)", "Local (neste computador)"
 OUTPUT_ROOT = Path("saida").resolve()
-# Vídeos baixados pelo link do Drive ficam aqui e são reaproveitados nas próximas análises.
-DRIVE_FOLDER = Path("videos_do_drive").resolve()
+MAX_UPLOAD_BYTES = 20_000_000_000  # 20 GB por vídeo; o upload é gravado em disco.
 
 # O botão Cancelar liga este sinal; o callback de progresso o verifica e
 # interrompe o trabalho (inclusive o ffmpeg em execução) em poucos segundos.
@@ -44,6 +42,7 @@ def launch_options() -> dict:
         "server_name": os.environ.get("GRADIO_SERVER_NAME", "127.0.0.1"),
         "server_port": int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
         "inbrowser": os.environ.get("CORTES_OPEN_BROWSER", "true").lower() in ("1", "true", "yes"),
+        "max_file_size": MAX_UPLOAD_BYTES,
     }
 
 
@@ -94,23 +93,19 @@ def _wait_for_upload(path: str, progress) -> None:
             time.sleep(2)
 
 
-def _source(path_text: str, upload: str | None, progress) -> str:
-    # "Copiar como caminho" do Windows põe aspas em volta; elas saem aqui.
-    path = (path_text or "").strip().strip('"').strip("'").strip()
-    if path and drive.is_drive_link(path):
-        return str(drive.download(path, DRIVE_FOLDER, _reporter(progress)))
-    if path:
-        return os.path.expanduser(path)
-    if upload:
-        _wait_for_upload(upload, progress)
-        return upload
-    raise gr.Error("Cole o link do Google Drive ou o caminho do vídeo no computador.")
+def _source(upload: str | None, progress) -> str:
+    if not upload:
+        raise gr.Error("Arraste um vídeo ou clique na área de envio para selecionar um arquivo.")
+    if Path(upload).stat().st_size > MAX_UPLOAD_BYTES:
+        raise gr.Error("O vídeo ultrapassa o limite de 20 GB. Selecione um arquivo menor.")
+    _wait_for_upload(upload, progress)
+    return upload
 
 
 @_friendly_errors
-def run_analysis(path_text, upload, engine, model, language, num, clip_min, clip_max, vertical, resolution,
+def run_analysis(upload, engine, model, language, num, clip_min, clip_max, vertical, resolution,
                  silence_db, min_silence, padding, remove_non_speech, progress=gr.Progress()):
-    src = _source(path_text, upload, progress)
+    src = _source(upload, progress)
     params = CutParams(
         silence_db=silence_db, min_silence_s=min_silence, padding_s=padding,
         remove_non_speech=remove_non_speech, num_highlights=int(num),
@@ -160,12 +155,7 @@ with gr.Blocks(title="Cortes · Monetali") as demo:
     with gr.Row(equal_height=False, elem_id="workspace"):
         with gr.Column(scale=4, min_width=300):
             with gr.Group(elem_classes="painel"):
-                gr.HTML(visual.step(1, "Adicione seu vídeo", "Cole um link público do Google Drive ou o caminho do vídeo."))
-                path_text = gr.Textbox(
-                    show_label=False, container=False, elem_id="caminho",
-                    placeholder="Cole o link ou o caminho do vídeo…",
-                )
-                gr.HTML('<p class="nota-final" style="text-align:center;margin:8px 0">ou envie um arquivo</p>')
+                gr.HTML(visual.step(1, "Adicione seu vídeo", "Arraste o vídeo abaixo ou clique para selecionar. Até 20 GB por arquivo."))
                 upload = gr.File(label="Solte seu vídeo aqui", file_types=sorted(ALLOWED_EXTENSIONS),
                                  type="filepath", height=150, elem_id="upload-video")
                 gr.HTML('<p class="nota-final">Por padrão: até 8 cortes de 20 a 60 segundos, em formato vertical.</p>')
@@ -213,12 +203,10 @@ with gr.Blocks(title="Cortes · Monetali") as demo:
 
     demo.load(fn=None, outputs=theme_btn, js=visual.INIT_THEME, queue=False)
     theme_btn.click(fn=None, outputs=theme_btn, js=visual.TOGGLE_THEME, queue=False)
-    upload.upload(lambda: "", outputs=path_text, queue=False)
-    path_text.input(lambda: None, outputs=upload, queue=False)
 
     analyze_btn.click(
         run_analysis,
-        inputs=[path_text, upload, engine, model, language, num, clip_min, clip_max, vertical, resolution,
+        inputs=[upload, engine, model, language, num, clip_min, clip_max, vertical, resolution,
                 silence_db, min_silence, padding, remove_non_speech],
         outputs=[summary, suggestions, transcript, analysis_state, preview, files, export_note, export_panel],
         show_progress_on=[summary],
