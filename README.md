@@ -14,6 +14,10 @@ vertical. Depois, mantenha os trechos desejados marcados e clique em
 **Gerar vídeos dos cortes selecionados**. Os ajustes opcionais ficam em
 **Personalizar cortes e ajustes**; a exportação aparece após a análise.
 
+O botão **Modo escuro / Modo claro** no topo alterna a aparência sem reiniciar
+o trabalho. A preferência fica salva no navegador; no primeiro acesso, o tema
+acompanha a configuração do sistema.
+
 ## Levando os cortes para o Premiere
 
 Em "Editar no Premiere ou exportar o vídeo inteiro", o botão "Gerar arquivo para o Premiere (.xml)" cria `<vídeo>_premiere.xml` sem renderizar nada; a exportação em MP4 também gera esse arquivo. Ele contém:

@@ -152,7 +152,9 @@ def run_premiere(analysis, chosen):
 
 
 with gr.Blocks(title="Cortes · Monetali") as demo:
-    gr.HTML(visual.header(bool(api_key())))
+    with gr.Row(elem_id="topbar"):
+        gr.HTML(visual.header(bool(api_key())), scale=8)
+        theme_btn = gr.Button("Modo escuro", scale=0, min_width=112, elem_id="tema")
     analysis_state = gr.State(None)
 
     with gr.Row(equal_height=False, elem_id="workspace"):
@@ -209,6 +211,8 @@ with gr.Blocks(title="Cortes · Monetali") as demo:
             with gr.Accordion("Ver transcrição do vídeo", open=False):
                 transcript = gr.Textbox(show_label=False, lines=14, max_lines=30)
 
+    demo.load(fn=None, outputs=theme_btn, js=visual.INIT_THEME, queue=False)
+    theme_btn.click(fn=None, outputs=theme_btn, js=visual.TOGGLE_THEME, queue=False)
     upload.upload(lambda: "", outputs=path_text, queue=False)
     path_text.input(lambda: None, outputs=upload, queue=False)
 
