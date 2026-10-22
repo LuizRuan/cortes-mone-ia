@@ -9,3 +9,6 @@ httpx>=0.27              # API do Groq (transcrição e escolha dos cortes na nu
 anthropic>=0.40          # opcional: escolha dos cortes pelo Claude (precisa de ANTHROPIC_API_KEY, pago)
 
 pytest>=8                # só para rodar os testes
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+python-dotenv>=1,<2

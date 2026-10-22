@@ -22,8 +22,9 @@ services:
       - modelos:/home/app/.cache
       - transcricoes:/cache
       - uploads:/uploads
+      - studio:/studio
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/', timeout=5).close()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:7860/api/health', timeout=5).close()"]
       interval: 30s
       timeout: 10s
       start_period: 60s
@@ -33,3 +34,4 @@ volumes:
   modelos:
   transcricoes:
   uploads:
+  studio:

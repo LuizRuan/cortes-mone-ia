@@ -30,3 +30,7 @@ desktop.ini
 .DS_Store
 .vscode/
 .idea/
+studio_data/
+frontend/node_modules/
+frontend/dist/
+.cache/

@@ -1,256 +1,172 @@
-# Cortes IA
+# Cortes Studio
 
-Recebe um vídeo longo (palestra, entrevista, live), sugere os melhores trechos para Reels/Shorts/TikTok e exporta só os que você escolher, sem os silêncios internos e, se quiser, em vertical 9:16.
+Envie uma gravação, assista às histórias selecionadas pela IA e baixe em alta
+qualidade somente os cortes que gostar. Interface React com temas claro/escuro,
+animações discretas e suporte a celular.
 
-Funciona em duas etapas:
+## Rodar com Docker
 
-1. **Analisar**: transcreve e sugere os cortes. É a parte demorada.
-2. **Exportar**: gera só os cortes marcados. O tempo depende da duração do corte, não do vídeo.
-   Ou **só o XML para o Premiere**, instantâneo (veja abaixo).
-
-Na interface, arraste um vídeo (ou clique para selecionar) e clique em
-**Analisar vídeo**. O padrão sugere até 8 cortes de 20 a 60 segundos, em
-vertical. Depois, mantenha os trechos desejados marcados e clique em
-**Gerar vídeos dos cortes selecionados**. Os ajustes opcionais ficam em
-**Personalizar cortes e ajustes**; a exportação aparece após a análise.
-
-O botão **Modo escuro / Modo claro** no topo alterna a aparência sem reiniciar
-o trabalho. A preferência fica salva no navegador; no primeiro acesso, o tema
-acompanha a configuração do sistema.
-
-## Levando os cortes para o Premiere
-
-Em "Editar no Premiere ou exportar o vídeo inteiro", o botão "Gerar arquivo para o Premiere (.xml)" cria `<vídeo>_premiere.xml` sem renderizar nada; a exportação em MP4 também gera esse arquivo. Ele contém:
-
-- uma **sequência por corte marcado**, já sem as pausas, com o motivo da escolha num marcador;
-- uma sequência com a **gravação inteira sem pausas**.
-
-As sequências apontam para o **vídeo original**, então não há perda de qualidade e dá para usar proxies normalmente.
-
-No Premiere:
-
-1. **Arquivo → Importar** e escolha o XML.
-2. Para trabalhar leve: selecione o vídeo no painel Projeto → botão direito → **Proxy → Criar proxies**.
-3. Para Reels/Shorts: botão direito na sequência → **Reenquadramento automático** (Auto Reframe) → 9:16. Ele acompanha a pessoa em quadro, melhor que o recorte central do app.
-
-Se o XML for aberto em outro computador, o Premiere pede para localizar o vídeo (**Vincular mídia**): basta apontar o arquivo.
-
-## Como rodar com Docker Compose (recomendado)
-
-Instale o [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/)
-com suporte a WSL 2 e use **contêineres Linux**. Não é necessário instalar Python
-nem FFmpeg no computador. A imagem inclui a interface, o FFmpeg e o Whisper
-para CPU; a transcrição pelo Groq também está disponível.
-
-Na pasta do projeto, no PowerShell:
+Requisitos: Git e Docker Desktop com contêineres Linux.
 
 ```powershell
+git clone -b Ruan https://github.com/LuizRuan/cortes-mone-ia.git
+cd cortes-mone-ia
 Copy-Item .env.example .env
-New-Item -ItemType Directory -Force entrada, saida, videos_do_drive
-# Opcional: edite .env e preencha GROQ_API_KEY ou ANTHROPIC_API_KEY.
+```
+
+Preencha `GROQ_API_KEY` no `.env`. O Studio usa o Groq para transcrição e edição
+narrativa. Os modelos são configuráveis por `CORTES_GROQ_WHISPER` e `CORTES_GROQ_LLM`.
+O modelo de edição precisa aceitar saída estruturada estrita. Referências:
+[transcrição](https://console.groq.com/docs/speech-to-text) e
+[saída estruturada](https://console.groq.com/docs/structured-outputs).
+
+```powershell
 docker compose up -d --build
 ```
 
-Abra **http://localhost:7860** neste computador ou
-**http://IP-DO-COMPUTADOR:7860** em outro computador da rede. No Windows,
-`ipconfig` mostra o endereço IPv4; permita a porta TCP escolhida no firewall
-da rede privada, se necessário. A porta padrão é 7860 e pode ser alterada
-com `CORTES_PORT` no `.env`.
+Abra **http://localhost:7860**. Para atualizar, preserve o `.env`, rode `git pull`
+e depois `docker compose up -d --build`.
 
-A interface está disponível na rede **sem login**. Todos usam a mesma fila,
-com um processamento por vez; o botão Cancelar interrompe o trabalho em
-execução, inclusive quando iniciado por outra pessoa. Esta configuração
-é destinada à rede local, sem publicação na internet.
+Na rede local, outras pessoas podem acessar `http://IP-DO-COMPUTADOR:7860`.
+O serviço não tem autenticação e é destinado a máquinas próprias ou redes
+confiáveis. Cada clone pode rodar uma instalação independente.
 
-### Vídeos e arquivos gerados
+## Como usar
 
-- A interface aceita apenas envio de arquivo: arraste o vídeo ou clique na área
-  de upload. O limite por arquivo é **20 GB (20.000.000.000 bytes)**, validado
-  tanto no envio quanto antes da análise. Aguarde o envio terminar antes de analisar.
-- O Gradio recebe os dados em blocos e grava em disco; o processamento recebe
-  o caminho do arquivo, sem carregar o vídeo inteiro na memória.
-- No Docker, os uploads ficam no volume `uploads`, montado em `/uploads`.
-  Reserve espaço no disco do Docker para os vídeos, o áudio temporário e as
-  exportações. Um vídeo de 20 GB exige mais de 20 GB livres no total.
-- A pasta `entrada/` é usada pela linha de comando, montada somente para leitura
-  em `/entrada`. Para outra pasta, configure `CORTES_INPUT_DIR` no `.env`.
-- Os resultados aparecem em `saida/` no host; os vídeos do Drive ficam em
-  `videos_do_drive/<id>/<nome-original>`. Essas pastas sobrevivem à remoção
-  do contêiner.
-- Modelos do Whisper e caches de transcrição/LLM ficam em volumes nomeados.
-  O modelo local é baixado no primeiro uso; as próximas execuções o reutilizam.
-  Os uploads também são persistidos; arquivos temporários de processamento não são.
+1. Arraste um vídeo de até **20 GB (20.000.000.000 bytes)**.
+2. Escolha entre 1 e 20 cortes; o padrão é 5. Duração padrão: 30–90 segundos.
+3. Clique em **Criar cortes**. O progresso é salvo por etapa.
+4. Assista às prévias e use **Baixar prévia** ou **Baixar em qualidade original**.
 
-No **Premiere do Windows**, importe o XML e use **Vincular mídia** para localizar
-o original: o XML gerado no Docker contém caminhos Linux, como `/uploads/...`.
-Aponte para o vídeo original que você enviou e preserve essa cópia.
-As sequências continuam ligadas ao original, sem renderização adicional.
+O enquadramento original é preservado. A IA pode combinar falas de momentos
+diferentes, sempre em ordem cronológica. Quando não encontra histórias completas
+suficientes, entrega menos cortes.
 
-### Operação e linha de comando
+O upload usa blocos de 8 MiB com verificação SHA-256. Se a conexão cair,
+selecione novamente o mesmo arquivo para retomar. **Meus vídeos** guarda as
+referências aos projetos neste navegador. Reabrir a página recupera o projeto
+atual; trocar de navegador não transfere esse histórico local.
 
-```powershell
-docker compose logs -f cortes          # acompanhar inicialização e erros
-docker compose ps                     # estado e healthcheck
-docker compose down                   # parar, preservando dados e caches
-docker compose up -d --build           # reconstruir após atualizar o código
-docker compose run --rm cortes python cli.py --help
-docker compose run --rm cortes python cli.py /entrada/video.mp4 --saida /app/saida/cli --nuvem --vertical
-```
+As etapas e arquivos ficam no servidor. Pausar um projeto não cancela outro.
+Uma fila persistente executa um trabalho pesado por vez. Falhas do Groq aparecem
+com opção de retomada, sem substituição silenciosa por heurística.
 
-Omita `--nuvem` para transcrição local em CPU. A CLI usa a mesma imagem e os
-mesmos volumes; execute-a quando a interface estiver ociosa para evitar
-processamentos simultâneos. Alterações no `.env` são aplicadas com
-`docker compose up -d`, que recria o serviço quando necessário.
+## Proxy, áudio e qualidade
 
-`docker compose down` preserva os volumes de modelos, transcrições e uploads.
-**`docker compose down -v` remove os uploads e esses caches**, exigindo reenviar
-os vídeos, baixar os modelos e processar novamente. As pastas de entrada, saída e vídeos do Drive no host
-não são apagadas por esse comando.
+- Primeiro é criado um proxy H.264: lado maior até 480 pixels, até 15 fps,
+  CRF 35, sem ampliar vídeos menores.
+- O áudio da transcrição vem diretamente do original em mono/16 kHz; não passa
+  pela compressão da prévia.
+- Transcrição em blocos; compreensão, busca editorial, montagem e revisão usam
+  prompts versionados e respostas estruturadas.
+- Uma lista única de intervalos no tempo do original controla os dois renders.
+- A exportação final usa o original, sem limitar a resolução, em H.264 CRF 18
+  e áudio AAC. Fontes HDR recebem conversão de tons para SDR.
+- “Qualidade original” significa renderização a partir do original em sua
+  resolução, não cópia bit a bit. A montagem exige recodificação.
+- Downloads repetidos reutilizam o arquivo final já pronto.
 
-No Linux, crie as pastas antes de subir o serviço e dê permissão de escrita
-ao usuário do contêiner (UID/GID 1000) nas pastas de saída e downloads:
+Criar o proxy exige ler o vídeo inteiro uma vez. O benefício é revisar e montar
+prévias leves; não há promessa de reduzir o tempo inicial de todo vídeo.
+A precisão do reconhecimento e a qualidade editorial dependem do áudio e do modelo.
 
-```sh
-cp .env.example .env
-mkdir -p entrada saida videos_do_drive
-sudo chown 1000:1000 saida videos_do_drive
-docker compose up -d --build
-```
+## Dados e espaço em disco
 
-A pasta de entrada e seus vídeos precisam ser legíveis pelo UID 1000. No
-Docker Desktop para Windows, permita o compartilhamento da pasta caso solicitado.
+O volume Docker `studio`, em `/studio`, guarda SQLite, originais, proxies,
+transcrições, listas de edição e exportações. Reserve espaço para o original
+mais áudio, proxy, cortes e temporários. Arquivos incompletos não são oferecidos
+como downloads. **Excluir projeto** remove seus dados do servidor após
+confirmação; preserve o original no computador.
 
-### Configuração e testes
-
-O `.env.example` lista as variáveis encaminhadas pelo Compose. Não versione
-o `.env`: as chaves são fornecidas ao executar o contêiner, sem entrar na imagem.
-Para usar apenas processamento local, deixe as duas chaves vazias. Escolher
-transcrição local não desativa a seleção de cortes por LLM se houver uma chave.
-
-A imagem define `GRADIO_SERVER_NAME=0.0.0.0`, `GRADIO_SERVER_PORT=7860`,
-`CORTES_OPEN_BROWSER=false`, `CORTES_CACHE_DIR=/cache` e
-`HF_HOME=/home/app/.cache/huggingface`. A execução direta mantém o servidor
-local e a abertura automática do navegador. `CORTES_CACHE_DIR` também pode
-ser usado fora do Docker; sem ele, o cache continua na pasta temporária
-`cortes_ia_transcricoes`.
-
-Para validar a configuração e executar os testes na imagem (APIs e modelos
-são simulados; os testes de mídia usam FFmpeg real):
+Os volumes antigos `uploads`, `modelos`, `transcricoes` e as pastas `saida`,
+`videos_do_drive` e `entrada` são preservados. Projetos antigos não são importados
+automaticamente para o Studio.
 
 ```powershell
+docker compose logs -f cortes
+docker compose ps
+docker compose down
+```
+
+`docker compose down` preserva os volumes. **`docker compose down -v` apaga os
+volumes, incluindo os projetos do Studio.**
+
+## Desenvolvimento
+
+Use a branch **Ruan**; a `main` recebe mudanças por pull request.
+Python 3.11+, Node 24 e FFmpeg no PATH:
+
+```powershell
+py -m pip install -r requirements-dev.txt
+npm --prefix frontend ci
+npm --prefix frontend run build
+py studio.py
+```
+
+Para recarregamento automático do frontend, rode também
+`npm --prefix frontend run dev`. O Vite encaminha `/api` à porta 7860.
+O backend serve o frontend compilado, a API e downloads com suporte a Range.
+
+| Variável | Padrão fora do Docker |
+| --- | --- |
+| `CORTES_STUDIO_DIR` | `studio_data` |
+| `GRADIO_SERVER_NAME` | `127.0.0.1` (nome legado preservado) |
+| `GRADIO_SERVER_PORT` | `7860` |
+| `CORTES_PORT` | porta publicada pelo Compose, 7860 |
+
+Não execute vários workers Uvicorn sobre a mesma pasta de dados. A fila e o
+cancelamento usam um processo servidor com um trabalhador.
+
+## API
+
+- `POST /api/projects`: inicia upload (`name`, `size`, `fingerprint`).
+- `PUT /api/projects/{id}/upload?offset=...`: recebe até 8 MiB, com header
+  `X-Chunk-SHA256`; retorna o próximo offset confirmado.
+- `POST /api/projects/{id}/complete`: valida mídia e calcula hash do original.
+- `POST /api/projects/{id}/start`: inicia/retoma com `count`, `min_seconds`,
+  `max_seconds`. Retomadas preservam os parâmetros do projeto.
+- `GET /api/projects/{id}`: estado, progresso, cortes, métricas e erros.
+- `POST /api/projects/{id}/cancel`: pausa o projeto.
+- `POST /api/projects/{id}/clips/{clip}/export`: solicita o render final.
+- `GET /api/projects/{id}/clips/{clip}/{preview|original}`: reprodução;
+  acrescente `?download=true` para download.
+- `DELETE /api/projects/{id}`: exclui projeto inativo.
+- `GET /api/health`: estado do servidor e disponibilidade da chave.
+
+## Testes e medições
+
+```powershell
+py -m pytest -q
+npm --prefix frontend run build
 docker compose config --quiet
-docker compose build
-docker compose run --rm -e GROQ_API_KEY= -e ANTHROPIC_API_KEY= cortes python -m pytest -q
+py scripts/benchmark_studio.py
 ```
 
-O teste opcional de leitura independente do XML é ignorado quando o
-OpenTimelineIO não está instalado.
+O benchmark usa vídeo/áudio sintéticos de 20 segundos e **IA simulada**. Registra
+tempos, tamanho do proxy, ocupação em disco e pico de memória do processo mais
+subprocessos em `docs/studio-benchmark.json`. Não representa a velocidade do
+Groq, a qualidade editorial real ou o desempenho de arquivos de 20 GB.
 
-## Como rodar diretamente com Python (Windows)
+Os testes verificam upload retomável, integridade, limites de tamanho, falta de
+espaço, recuperação de fila, revisão editorial simulada, sincronização, rotação,
+taxa de quadros variável, exportação, downloads e cache.
+Veja o [relatório de validação e suas limitações](docs/studio-validation.md).
 
-Pré-requisitos: Python 3.10+ e FFmpeg (`winget install Gyan.FFmpeg`).
+Para QA isolado: `py scripts/preview_fixture.py` abre um servidor na porta 7863
+com transcrição e IA simuladas, em `.cache/studio-ui-qa`. Esse servidor não faz
+parte da execução de produção.
+
+## CLI e Premiere
 
 ```powershell
-py -m pip install -r requirements.txt
-py app.py                      # abre em http://127.0.0.1:7860
+docker compose run --rm cortes python cli.py --help
+docker compose run --rm cortes python cli.py /entrada/video.mp4 --saida /app/saida/cli --nuvem
 ```
 
-Ou dê dois cliques em **`Abrir Cortes.bat`**: o navegador abre sozinho.
+A CLI mantém o fluxo legado de highlights, renderização e XML para Premiere;
+a montagem narrativa do Studio é um fluxo separado. A pasta `entrada` é montada
+somente para leitura. No Premiere, use **Vincular mídia** para apontar para o
+original no computador ao importar XML com caminhos do Docker.
 
-Arraste o arquivo do vídeo para a área de envio ou clique nela para selecionar.
-O limite é 20 GB por arquivo. Se o vídeo estiver no Google Drive, baixe-o primeiro.
-
-Os arquivos exportados ficam em `saida\<nome-do-vídeo>_<data>` dentro da pasta do projeto.
-
-Pela linha de comando: `py cli.py video.mp4 --nuvem --vertical` (veja `py cli.py --help`).
-
-## Chave gratuita do Groq (recomendado)
-
-**No Docker:** preencha `GROQ_API_KEY` no `.env` e rode `docker compose up -d`.
-Os passos com `setx` abaixo se aplicam à execução direta com Python.
-
-Com a chave, a transcrição roda na nuvem (Whisper large-v3-turbo, mais preciso que os modelos que cabem num notebook) e um LLM escolhe os cortes. Sem a chave, tudo roda no computador e a escolha é feita por uma heurística bem mais fraca.
-
-1. Crie uma conta em <https://console.groq.com> (não pede cartão).
-2. Em **API Keys**, clique em **Create API Key** e copie a chave (começa com `gsk_`).
-3. No PowerShell, rode uma vez:
-   ```powershell
-   setx GROQ_API_KEY "gsk_sua_chave_aqui"
-   ```
-4. Feche e abra o PowerShell de novo e rode `py app.py`. O topo da página deve dizer "Chave do Groq encontrada".
-
-**Privacidade:** com a nuvem ligada, o áudio (não o vídeo) e o texto da transcrição são enviados ao Groq. Para conteúdo interno sensível, escolha "Local" na transcrição. A escolha dos cortes continua usando o Groq enquanto a chave existir; para não enviar nada, remova a chave (`setx GROQ_API_KEY ""` e reabra o PowerShell).
-
-### Limites do plano gratuito
-
-Segundo a [página de limites do Groq](https://console.groq.com/docs/rate-limits) em out/2026:
-
-| Uso | Limite |
-|---|---|
-| Transcrição | 2 h de áudio por hora, 8 h por dia |
-| LLM (`openai/gpt-oss-120b`) | 8 mil tokens por minuto, 200 mil por dia |
-
-Na prática, para um vídeo de 4 h:
-
-- **Transcrição:** as 2 primeiras horas saem em minutos. O app então espera o limite liberar, mostrando a contagem regressiva, e continua. Total: um pouco mais de 1 h, sem pesar no computador.
-- **Escolha dos cortes:** a transcrição é lida em ~25 partes de 10 min, cerca de uma por minuto. Total: ~25 min, quase toda a cota diária do LLM.
-- **Ao bater no limite diário:** o app para com aviso. Tudo o que já foi feito fica em cache (pasta temporária `cortes_ia_transcricoes`); rodar de novo continua de onde parou e não gasta cota com o que já foi processado.
-
-## Arquitetura
-
-```
-app.py / cli.py
-   │
-   ▼
-pipeline.analyze()  vídeo ─► media.py (áudio WAV 16 kHz, silencedetect)
-                             transcribe.py (blocos de ~10 min; local ou cloud.py/Groq; cache por bloco)
-                             segments.py   (onde há fala: volume + palavras do Whisper)
-                             highlights.py (Groq em janelas → Claude → heurística)
-pipeline.export()   cortes marcados ─► render.py (ffmpeg salta direto para cada trecho)
-```
-
-```
-cortes-ia/
-├── app.py               Interface Gradio (analisar → escolher → exportar, cancelar)
-├── visual.py            Aparência da interface: cores da Monetali, tipografia, linha do tempo
-├── cli.py               Linha de comando
-├── cortes/
-│   ├── config.py        CutParams (todos os parâmetros) e validação da entrada
-│   ├── media.py         ffprobe, extração de áudio, silêncio, execução do ffmpeg
-│   ├── transcribe.py    Transcrição em blocos com cache (faster-whisper ou Groq)
-│   ├── cloud.py         Cliente da API do Groq (espera automática nos limites)
-│   ├── drive.py         Download pelo link do Google Drive (retomável)
-│   ├── segments.py      Aritmética de intervalos (funções puras)
-│   ├── highlights.py    Escolha dos melhores trechos
-│   ├── render.py        Corte e exportação MP4
-│   ├── premiere.py      XML de sequências para o Premiere (formato Final Cut Pro 7)
-│   └── pipeline.py      analyze(), export() e process() (os dois juntos)
-└── tests/               py -m pytest
-```
-
-### Por que é leve com vídeo longo
-
-- **Transcrição em blocos.** O faster-whisper analisa o áudio inteiro de uma vez: medido aqui, 1 h de áudio já passava de 3 GB de RAM, e 4 h passariam de 12 GB. Em blocos de 10 min (cortados na pausa mais próxima), 4 h de áudio ficaram em ~650 MB de pico nos testes, sem contar o modelo.
-- **Vídeo em disco.** O upload pelo navegador é gravado em blocos, com limite de 20 GB. Pela CLI, o caminho local é usado diretamente, sem cópia.
-- **Exportação por trecho.** Cada corte decodifica só a sua janela do vídeo (`-ss` antes do `-i`), então o tempo depende do corte, não das 4 h. Nos testes, uma fonte 4K virou 1080p a cerca de 2 s de processamento por segundo de corte numa máquina de 2 núcleos; um notebook comum deve ser mais rápido.
-- **Cache.** Blocos transcritos e respostas do LLM ficam salvos: reanalisar com outra duração de corte é rápido e não gasta cota.
-- **Prioridade baixa.** O app e o ffmpeg usam a CPU livre sem travar o resto da máquina.
-- **Cancelar de verdade.** O botão interrompe a transcrição, as esperas da API e o ffmpeg em poucos segundos.
-
-### Decisões que valem saber
-
-- **Dois sinais para o silêncio.** O volume (`silencedetect`) dá o instante exato; as palavras do Whisper dizem onde há fala, o que também remove música e ruído.
-- **Cortes são frases inteiras.** Um corte nunca começa nem termina no meio de uma frase. A duração mínima/máxima vale para o corte já sem pausas.
-- **ffmpeg direto, não MoviePy.** `trim`/`atrim` + `concat` mantém áudio e vídeo sincronizados com qualquer número de emendas.
-- **Saída:** H.264 (CRF 20, `veryfast`) + AAC 160 kbps, `faststart`, até 1080p.
-
-## Limitações
-
-- O 9:16 do MP4 é recorte **central**, sem seguir o rosto. Se o CEO não estiver no centro do quadro, ele sai cortado; no Premiere, o Reenquadramento automático resolve isso.
-- O XML foi validado com um leitor independente do formato (OpenTimelineIO), não dentro do próprio Premiere.
-- No plano gratuito, a escolha de cortes por LLM dá para cerca de um vídeo de 4 h por dia.
-- A transcrição local de 4 h em CPU leva bastante tempo (modelo `base`: provavelmente 1 h ou mais num notebook). A memória fica estável, mas a CPU trabalha.
-- Vídeo HDR de iPhone é convertido para 8 bits sem mapeamento de tons; as cores podem sair mais lavadas.
-- Um vídeo por vez.
-- Vídeos do Drive precisam estar compartilhados por link; não há login com conta Google. O download foi testado contra um Drive simulado, não contra o Google Drive real.
-- O XML do Premiere aponta para a cópia baixada em `videos_do_drive\`. Não apague essa pasta enquanto estiverem editando.
+O antigo `app.py`/Gradio permanece para compatibilidade. O comando padrão do
+Docker e **Abrir Cortes.bat** iniciam `studio.py`.
