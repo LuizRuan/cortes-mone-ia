@@ -45,6 +45,11 @@ inclui um contêiner Ollama: instale e mantenha o aplicativo Ollama aberto no
 Windows. Internet é necessária no primeiro download dos modelos; depois o
 processamento local pode ser feito offline.
 
+O fluxo é o mesmo: envie o vídeo, aguarde o proxy e a transcrição e assista aos
+cortes prontos. As prévias são geradas automaticamente; a versão em qualidade
+original só é renderizada quando você clica para baixar. Em CPU, a análise local
+pode levar vários minutos. As etapas concluídas são reaproveitadas ao retomar.
+
 ```powershell
 docker compose up -d --build
 ```

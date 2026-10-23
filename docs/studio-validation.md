@@ -1,5 +1,46 @@
 # Validação da reformulação
 
+## Fluxo local completo — correção em 23/10/2026
+
+O upload de um vídeo sintético de **300 segundos**, 1280×720/24 fps, foi executado
+pela API do aplicativo em Docker. A fala foi gerada com a voz Microsoft Maria;
+não foram usados vídeos privados. Tanto a transcrição Whisper `small` quanto a
+seleção Qwen3 `4b` foram **reais**, sem respostas de IA simuladas neste teste.
+
+O projeto gerou um corte aprovado de aproximadamente 48 segundos entre cinco
+solicitados. A interface informa quando a IA entrega menos cortes. A seleção
+preservou o problema inicial, a mudança de rotina, a ressalva sobre combinar
+horários com a equipe e o resultado da mudança. Isso comprova este caso de teste,
+sem estabelecer precisão editorial geral em gravações reais de usuários.
+
+Na imagem final, **102 testes automatizados passaram e 1 foi ignorado**
+(OpenTimelineIO opcional). O build TypeScript/Vite também passou. A comparação
+dos tempos das 45 frases na versão final confirmou o mesmo mapeamento usado
+nos dois arquivos baixados durante o teste.
+
+- Prévia baixada: **480×270, 15 fps, 47,999 s**.
+- Exportação do original baixada: **1280×720, 24 fps, 47,957 s**.
+- Reprodução por HTTP Range: 206; downloads com Content-Disposition attachment.
+- Solicitação repetida da exportação retornou o arquivo pronto.
+- A mesma lista de edição foi usada nos dois renders.
+
+Foram corrigidos IDs inventados, geração sem limite e a espera durante leitura
+do contexto pela IA em CPU. As respostas agora usam IDs permitidos no esquema,
+limites de texto/listas/tokens e validação antes do cache. Cancelamento e prazo
+de execução continuam funcionando antes do primeiro token. A separação de frases
+usa timestamps por palavra e também preserva pontuação de segmentos quando o
+provedor a omite nos tokens. O cache editorial tem uma versão nova.
+
+O teste incluiu retomadas durante as correções: proxy e transcrição foram
+reaproveitados. Na tentativa final, seleção e render da prévia levaram cerca de
+251 s e a exportação original, 7,14 s. Esse tempo **não inclui a preparação e a
+transcrição já concluídas**, nem constitui benchmark de uma primeira execução.
+Na tentativa inicial, o proxy levou 10,42 s e a transcrição, 64,80 s.
+
+Os testes automatizados abaixo usam fixtures e respostas simuladas, salvo
+quando indicam processamento real por FFmpeg. Este teste manual de 5 minutos é
+separado do benchmark sintético antigo de 20 segundos.
+
 ## Atualização do modo local — 23/10/2026
 
 A mudança de `origin/eduardo` foi incorporada à `Ruan` por cherry-pick, preservando

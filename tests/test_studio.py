@@ -381,3 +381,97 @@ def test_ollama_missing_model_and_offline_have_clear_messages():
         raise httpx.ConnectError('refused')
     with pytest.raises(CloudError, match='Ollama'):
         Ollama(httpx.Client(transport=httpx.MockTransport(offline))).chat_json('s', 'u', {}, lambda msg: None)
+
+
+def test_invalid_source_ids_never_enter_editorial_cache(tmp_path):
+    from cortes.studio_stories import cached, id_schema, OUTLINE
+    from jsonschema import ValidationError
+    editor = Editor()
+    editor.chat_json = Mock(return_value={'ideas':[dict(topic='Inventado',context='x',start=1,end=900)]})
+    with pytest.raises(ValidationError):
+        cached(editor,tmp_path,'compreensão',{},id_schema(OUTLINE,[0,1,2]),lambda msg:None)
+    assert not list(tmp_path.rglob('*.json'))
+
+
+def test_bounded_schema_restricts_real_sentence_ids_and_generation():
+    from cortes.local_ai import bounded_schema
+    from cortes.studio_stories import id_schema, EDIT
+    from jsonschema import validate, ValidationError
+    schema = bounded_schema(id_schema(EDIT,[2,7,9]))
+    assert schema['properties']['sentence_ids']['maxItems'] == 3
+    edit = dict(title='A',rationale='B',opening='C',development='D',ending='E',sentence_ids=[2,7,9])
+    validate(edit,schema)
+    for change in [dict(sentence_ids=[2,8]), dict(sentence_ids=[2,2,2,2]), dict(rationale='x'*161)]:
+        with pytest.raises(ValidationError):validate({**edit,**change},schema)
+
+
+@pytest.mark.parametrize('finish', [None, {'done':True,'done_reason':'length'}])
+def test_ollama_truncated_stream_cannot_be_accepted(finish):
+    import httpx
+    from cortes.local_ai import Ollama
+    from cortes.cloud import CloudError
+    chunks = [{'message':{'content':'{"value":true}'}}]
+    if finish:chunks.append(finish)
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200,content='\n'.join(json.dumps(x) for x in chunks))))
+    with pytest.raises(CloudError):Ollama(client).chat_json('s','u',{},lambda msg:None)
+
+
+def test_ollama_cancellation_before_request():
+    import httpx
+    from cortes.local_ai import Ollama
+    handler = Mock()
+    def cancelled(msg):raise Cancelled()
+    with pytest.raises(Cancelled):
+        Ollama(httpx.Client(transport=httpx.MockTransport(handler))).chat_json('s','u',{},cancelled)
+    handler.assert_not_called()
+
+
+def test_editorial_windows_cover_every_sentence_and_remain_bounded():
+    from cortes.studio_stories import editorial_windows
+    sentences = [Sentence(i*5,i*5+4,'x'*200) for i in range(200)]
+    windows = list(editorial_windows(sentences))
+    assert set(i for a,b in windows for i in range(a,b)) == set(range(200))
+    for a,b in windows:
+        assert sum(len(s.text) for s in sentences[a:b])<=6500
+        assert sentences[b-1].start-sentences[a].start<150
+
+
+def test_complete_sentences_split_asr_blocks_at_word_boundaries():
+    from cortes.studio_stories import complete_sentences
+    words = [Word(0,1,'Um'),Word(1,2,'problema.'),Word(2,3,'Uma'),Word(3,4,'solução.'),Word(4,5,'A')]
+    t = Transcript('pt',[Sentence(0,5,'Um problema. Uma solução. A',words),
+                         Sentence(5,6,'conclusão.',[Word(5,6,'conclusão.')])])
+    result = complete_sentences(t)
+    assert [(s.start,s.end,s.text) for s in result.sentences] == [(0,2,'Um problema.'),(2,4,'Uma solução.'),(4,6,'A conclusão.')]
+    assert complete_sentences(result) == result
+    assert [w for s in result.sentences for w in s.words] == words+[Word(5,6,'conclusão.')]
+
+
+def test_complete_sentences_align_punctuation_missing_from_groq_words():
+    from cortes.studio_stories import complete_sentences
+    words = [Word(0,1,'Uma'),Word(1,2,'ideia'),Word(2,3,'Outra'),Word(3,4,'conclusão')]
+    t = Transcript('pt',[Sentence(0,4,'Uma ideia. Outra conclusão.',words)])
+    result = complete_sentences(t)
+    assert [(s.start,s.end,s.text) for s in result.sentences] == [(0,2,'Uma ideia.'),(2,4,'Outra conclusão.')]
+    assert complete_sentences(result) == result
+
+
+@pytest.mark.parametrize('cancel', [True, False])
+def test_ollama_can_stop_before_first_token(cancel):
+    import httpx
+    from cortes.local_ai import Ollama
+    from cortes.cloud import CloudError
+    entered, release = threading.Event(), threading.Event()
+    def handler(request):
+        entered.set()
+        release.wait(5)
+        return httpx.Response(200,content='{"done":true,"message":{"content":"{}"}}')
+    client = Ollama(httpx.Client(transport=httpx.MockTransport(handler)))
+    if not cancel:client.max_seconds = .02
+    def tick(msg):
+        if cancel and entered.is_set():raise Cancelled()
+    try:
+        with pytest.raises(Cancelled if cancel else CloudError):
+            client.chat_json('s','u',{},tick)
+    finally:
+        release.set()

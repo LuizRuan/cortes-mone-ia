@@ -112,7 +112,8 @@ class Worker:
             atomic_json(transcript_path, asdict(transcript))
         transcript = complete_sentences(transcript)
         atomic_json(folder / f'editorial-transcript-{transcript_key}.json', asdict(transcript))
-        edit_key = hashlib.sha256((transcript_key + client.model + VERSION + json.dumps(data['params'], sort_keys=True)).encode()).hexdigest()[:20]
+        editor_identity = getattr(client, 'cache_identity', client.model)
+        edit_key = hashlib.sha256((transcript_key + editor_identity + VERSION + json.dumps(data['params'], sort_keys=True)).encode()).hexdigest()[:20]
         clip_path = folder / f'edits-{edit_key}.json'
         if clip_path.exists():
             clips = json.loads(clip_path.read_text(encoding='utf-8'))
