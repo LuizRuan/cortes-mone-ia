@@ -26,7 +26,9 @@ def prepare(src, folder, info, progress):
     # never independently shifted relative to the video.
     proxy_tmp, audio_tmp = folder / 'proxy.partial.mp4', folder / 'audio.partial.wav'
     scale = "scale='trunc(iw*min(1,480/max(iw,ih))/2)*2':'trunc(ih*min(1,480/max(iw,ih))/2)*2'"
-    vf = hdr_filter(src) + scale + f',fps={min(15, info.fps)},setsar=1,format=yuv420p'
+    # Discard unneeded frames and reduce spatial resolution before the costly
+    # HDR float conversion. The final export still converts at full resolution.
+    vf = f'fps={min(15, info.fps)},' + scale + ',' + hdr_filter(src) + 'setsar=1,format=yuv420p'
     try:
         media.run_with_progress([
             'ffmpeg', '-y', '-v', 'error', '-i', str(src),
@@ -47,9 +49,13 @@ def prepare(src, folder, info, progress):
 
 def render_edit(src, parts, dest, original, progress):
     temp = dest.with_name(dest.stem + '.partial.mp4')
+    info = media.probe(src) if original else None
+    # The concat graph buffers full-size decoded frames. Render 4K+ intervals
+    # sequentially before joining them to bound memory on 16 GB machines.
+    batch = 1 if info and info.width * info.height > 1920 * 1080 else None
     try:
         render(src, parts, temp, crf=18 if original else 35, preset='veryfast',
-               max_side=0, progress=progress, video_filter=hdr_filter(src) if original else '')
+               max_side=0, progress=progress, video_filter=hdr_filter(src) if original else '', batch_size=batch)
         os.replace(temp, dest)
     finally:
         temp.unlink(missing_ok=True)

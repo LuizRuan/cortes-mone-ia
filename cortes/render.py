@@ -76,6 +76,7 @@ def render(
     max_side: int = 1080,
     progress: Callable[[float], None] | None = None,
     video_filter: str = "",
+    batch_size: int | None = None,
 ) -> Path:
     """Exporta para `dst` (MP4) apenas os `segments` de `src`, na ordem dada.
 
@@ -85,7 +86,8 @@ def render(
     if not segments:
         raise ValueError("Nenhum trecho para exportar.")
     dst.parent.mkdir(parents=True, exist_ok=True)
-    chunks = [segments[k:k + CHUNK] for k in range(0, len(segments), CHUNK)]
+    batch = CHUNK if batch_size is None else max(1, min(CHUNK, batch_size))
+    chunks = [segments[k:k + batch] for k in range(0, len(segments), batch)]
     notify = progress or (lambda fraction: None)
     total = total_duration(segments)
     fit = video_filter + _fit(max_side, vertical)

@@ -25,7 +25,7 @@ def bounded_schema(schema, name=''):
     """Bound local grammar generation, including arrays of transcript IDs."""
     result = dict(schema)
     if result.get('type') == 'string':
-        result['maxLength'] = 160 if name in ('rationale', 'feedback', 'context') else 80
+        result['maxLength'] = min(result.get('maxLength', 160), 160 if name in ('rationale', 'feedback', 'context') else 80)
     if result.get('type') == 'array':
         items = result['items']
         result['maxItems'] = min(12, len(items.get('enum', [])) or 6)
@@ -70,6 +70,16 @@ def missing_setup() -> str | None:
 
 
 class Ollama:
+    def check_ready(self):
+        try:
+            response = self.http.get(self.url + '/api/tags', timeout=10)
+            response.raise_for_status()
+            names = [m['name'] for m in response.json().get('models', [])]
+        except (httpx.HTTPError, ValueError, KeyError) as exc:
+            raise CloudError('Ollama indisponível. Abra o Ollama no computador e tente retomar.') from exc
+        if self.model not in names and self.model + ':latest' not in names:
+            raise CloudError(f'Modelo ausente. Execute ollama pull {self.model} e retome.')
+
     def __init__(self, http: httpx.Client | None = None):
         self.url = os.environ.get("CORTES_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
         self.model = os.environ.get("CORTES_OLLAMA_MODEL", "").strip() or "qwen3:4b"
@@ -77,7 +87,7 @@ class Ollama:
         self.context = int(os.environ.get("CORTES_OLLAMA_CTX", "8192"))
         self.max_seconds = 240
         self.max_tokens = 1200
-        self.cache_identity = f'ollama-bounded-v1|{self.model}|ctx={self.context}'
+        self.cache_identity = f'ollama-grounded-v2|{self.model}|ctx={self.context}'
         self.http = http or httpx.Client(timeout=httpx.Timeout(None, connect=10))
 
     def _stream(self, body, tick):
@@ -143,7 +153,8 @@ class Ollama:
         schema = bounded_schema(schema)
         body = {
             "model": self.model,
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content":
+                user + '\nResponda usando este esquema JSON:\n' + json.dumps(schema, ensure_ascii=False)}],
             "format": schema,
             "stream": True,
             # O Qwen3 "pensa" antes de responder; aqui isso só custaria tempo.
@@ -163,6 +174,8 @@ class Ollama:
                         last = time.monotonic()
                         tick(f"IA local escrevendo ({len(''.join(content))} caracteres)")
                     if chunk.get("done"):
+                        self.last_usage = {key: chunk.get(key) for key in (
+                            'prompt_eval_count', 'eval_count', 'prompt_eval_duration', 'eval_duration', 'load_duration')}
                         if chunk.get('done_reason') == 'length':
                             raise CloudError('A IA local atingiu o limite da resposta. O progresso está salvo; tente retomar.')
                         completed = True

@@ -3,6 +3,7 @@ import hashlib
 import os
 import shutil
 import threading
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -86,7 +87,11 @@ def create_app(root=None, run_worker=True, static_dir=None):
 
     @app.get('/api/projects/{key}')
     def get_project(key: str):
-        return project(key)
+        data = project(key)
+        if data['status'] == 'processing' and data.get('attempt_started'):
+            data['elapsed_seconds'] = round(time.time() - data['attempt_started'], 1)
+        data['previews_ready'] = sum(c['preview_status']=='ready' for c in data['clips'])
+        return data
 
     @app.put('/api/projects/{key}/upload')
     async def upload_chunk(key: str, offset: int, request: Request):

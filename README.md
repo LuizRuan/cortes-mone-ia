@@ -1,5 +1,16 @@
 # Cortes Studio
 
+O processamento analisa toda a transcrição em blocos com contexto limitado,
+relaciona ideias que precisam de contexto e revisa os candidatos por qualidade.
+As prévias aparecem conforme ficam prontas. Vídeos longos continuam dependendo
+da velocidade do computador; o aplicativo mostra partes analisadas e tempo
+decorrido, sem prometer um prazo de conclusão. Falhas podem ser retomadas,
+reaproveitando blocos e arquivos concluídos.
+
+O modo local verifica se o Ollama está acessível e se `qwen3:4b` está instalado
+antes de preparar o vídeo. O padrão continua sendo Whisper `small` e Qwen3 `4b`.
+As medições e limites conhecidos estão em [validação](docs/studio-validation.md).
+
 Envie uma gravação, assista às histórias selecionadas pela IA e baixe em alta
 qualidade somente os cortes que gostar. Interface React com temas claro/escuro,
 animações discretas e suporte a celular.

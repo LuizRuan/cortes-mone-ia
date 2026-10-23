@@ -1,5 +1,143 @@
 # Validação da reformulação
 
+## Seleção para vídeos longos — versão editorial v4
+
+A descoberta agora reúne compreensão e busca em uma passagem por bloco.
+O orçamento inclui instruções, texto, esquema, enquadramento da conversa e
+resposta reservada. A estimativa usa bytes UTF-8 como limite conservador de
+tokens; não é uma contagem exata do tokenizer. Blocos grandes são divididos
+entre frases e a cobertura de IDs é conferida antes da revisão. Uma frase ou
+história cujo contexto não caiba causa erro retomável, sem truncar falas.
+
+Cada resumo recebe uma decisão explícita. Ideias incompletas podem recuperar
+contexto de outros blocos; a montagem recebe as falas originais e vizinhas,
+nunca somente os resumos. Até `3 × quantidade solicitada` candidatos podem
+passar por montagem/revisão, parando quando há cortes suficientes. Rejeições
+e correções ficam registradas. Falhas de modelo/contexto interrompem o projeto
+e preservam as prévias já publicadas. Os cortes aceitos não são substituídos.
+
+`editorial-progress.json` registra cobertura, decisões, chamadas, cache,
+revisões e duração das chamadas. As respostas do Ollama também fornecem
+contagens de tokens e durações em nanossegundos. O manifesto acrescenta
+unidades concluídas/total, tempo por tentativa, primeira prévia, pico de RSS
+do backend e subprocessos e histórico das tentativas. A duração `stories`
+inclui prévias intercaladas; `editorial_metrics.ai_seconds` mede somente as
+chamadas editoriais e sua validação/cache. RSS agregado pode contar páginas
+compartilhadas; não equivale à memória física exclusiva.
+
+O build do frontend passou. A imagem Docker passou com **116 testes aprovados
+e 1 ignorado**. Os testes de escalabilidade
+usam transcrições simuladas de 300, 600 e 3.600 segundos, verificando cobertura,
+limite de revisões, retomada e estabilidade dos IDs. Isso **não comprova**
+desempenho com uma gravação real de uma hora nem qualidade editorial humana.
+
+### Como medir sem confundir os cenários
+
+Para o fluxo completo com IA local real, executar no Windows, com o Studio
+iniciado e um vídeo de cada duração. Cada pasta nova cria um projeto novo;
+repetir uma pasta retoma seu projeto. O script baixa uma prévia e uma exportação
+original e confere reutilização e HTTP Range:
+
+```powershell
+python scripts/benchmark_studio_real.py --source entrada/teste-5min.mp4 --output .cache/real-5min --label "fala sintética, IA real"
+python scripts/benchmark_studio_real.py --source entrada/teste-10min.mp4 --output .cache/real-10min --label "vídeo real autorizado, IA real"
+python scripts/benchmark_studio_real.py --source entrada/teste-60min.mp4 --output .cache/real-60min --label "vídeo real autorizado, IA real"
+```
+
+O script mede RSS dos processos Ollama/llama-server no Windows e registra o
+RSS do backend informado pelo projeto, tempos, cache, disco e resultados.
+Não rodar benchmarks junto com builds, testes ou outra tarefa pesada.
+
+Para isolar a seleção sobre a mesma transcrição salva, sem refazer ASR:
+
+```powershell
+python scripts/benchmark_editorial.py caminho/transcript.json --output .cache/editorial-novo
+python scripts/benchmark_editorial.py caminho/transcript.json --output .cache/editorial-anterior --baseline-commit 1ebfcdf
+```
+
+`--repeat 2` e `--repeat 12` exercitam linhas do tempo maiores com conteúdo
+repetido. Não representam vídeos independentes de 10/60 minutos nem devem ser
+usados para alegar diversidade ou velocidade nessas durações. O benchmark
+editorial exclui upload, transcrição e renderização.
+
+`--baseline-commit` carrega apenas o módulo editorial daquele commit e mantém
+o cliente Ollama do checkout atual. Ele compara os algoritmos com o mesmo
+cliente; não reproduz integralmente a imagem/ambiente históricos.
+
+Continuam pendentes a comprovação da meta de redução de 25%, a comparação
+humana de fidelidade/diversidade e o benchmark completo de 60 minutos.
+O caso abaixo cobre uma gravação real com mais de dez minutos.
+Não houve transferência real de 20 GB nesta etapa.
+
+### Caso real autorizado: 744,54 segundos, 4K HDR e rotação de celular
+
+Foi enviado pela API um MOV HEVC de 3.186.730.403 bytes, com áudio AAC, HLG
+e rotação de -90 graus. O upload foi real, em blocos, com projeto novo.
+A preparação terminou em 669,44 s; a transcrição local, em 144,89 s.
+O proxy possui 270×480, 15 fps, duração de 744,554 s e 8.998.014 bytes,
+com primárias/transferência/matriz BT.709. O áudio de análise foi extraído
+diretamente do original. O filtro agora reduz quadros e resolução antes da
+conversão HDR, mantendo a conversão do export final na resolução completa.
+
+A descoberta cobriu as 138 frases em sete blocos e encontrou 20 candidatos.
+Foram publicados quatro cortes de 32,56 s, 58,347 s, 69,372 s e 32,2076 s,
+entre cinco solicitados. A interface explica a entrega menor. Houve um teste
+controlado de cancelamento e reinício do contêiner depois das três primeiras
+prévias: os três IDs e arquivos foram preservados. A retomada reutilizou proxy,
+transcrição e respostas editoriais (30 acertos de cache no resultado final).
+
+A primeira prévia surgiu em 1.928,87 s na tentativa inicial. A retomada levou
+801,39 s de processamento, com etapas anteriores reutilizadas. Esses tempos
+**não são uma execução contínua com cache vazio**. O histórico preserva a
+tentativa interrompida; não se deve interpretar `proxy: 0` na retomada como
+tempo da preparação original nem somar picos de fases diferentes.
+
+O primeiro corte foi exportado e baixado: H.264/AAC, **2160×3840**, BT.709,
+32,600 s e 127.969.625 bytes; sua prévia tem 32,599 s e 825.090 bytes.
+A mesma lista de edição foi usada nos dois arquivos. Exportar levou 167,34 s;
+pedir novamente retornou o arquivo pronto. As quatro prévias responderam a
+HTTP Range com 206. O pico amostrado de RSS do backend/FFmpeg foi de cerca de
+3,41 GB; o conjunto de processos Ollama no Windows chegou a 6,65 GB.
+Esses picos não ocorreram necessariamente ao mesmo tempo e não devem ser
+somados como memória física exclusiva.
+
+O teste revelou várias montagens reprovadas por duração. A implementação
+agora elimina antes da IA os contextos cuja duração total disponível não
+atinge o mínimo; também fornece durações calculadas pelo backend na montagem.
+Os tempos finais continuam sendo calculados a partir de IDs reais, e a revisão
+é obrigatória. Esses ajustes posteriores serão avaliados separadamente na
+fixture sintética de cinco temas. Exportações 4K usam lotes de um intervalo,
+unidos sem nova recodificação do vídeo, para limitar buffers de alta resolução.
+
+Durante a exploração da fala sintética, o Qwen 4B produziu revisões
+contraditórias. A versão final fornece o esquema também no contexto do modelo,
+pede evidência antes do julgamento e mostra as falas selecionadas já em ordem,
+separadas do contexto omitido. O cache local recebeu nova identidade para não
+reutilizar respostas do protocolo anterior. A validação humana continua
+necessária; aprovação do próprio modelo não é medida de precisão.
+
+### Fixture de cinco temas — IA real, seleção editorial isolada
+
+Na transcrição salva da fala sintética de cinco minutos, a versão final
+recuperou **cinco histórias**, contra uma no teste histórico. As cinco listas
+contêm, respectivamente, todos os IDs de 0–8, 9–17, 18–26, 27–35 e 36–44,
+sem repetir nem inventar falas. Isso conserva os problemas, mudanças,
+ressalvas e conclusões presentes nessa fixture. As durações calculadas foram
+53,24 s, 48,46 s, 55,46 s, 51,56 s e 56,90 s.
+
+Ollama Qwen3 4B real executou 14 chamadas em **641,55 s**, com cache editorial
+inicialmente vazio. O pico amostrado dos processos Ollama foi de 5,37 GB.
+Repetir a seleção levou **1,05 s**, sem chamadas novas, com 14 acertos de cache
+e listas de edição idênticas. O caso ultrapassa a meta de recuperar quatro
+histórias nesta fixture, mas não mede precisão em vídeos variados.
+
+Este benchmark exclui upload, geração de proxy, transcrição e renderização;
+não representa cinco novos arquivos MP4 renderizados. O tempo total editorial
+aumentou em relação aos 248,85 s históricos, que entregaram apenas uma história.
+Não é evidência de redução de 25% nem comparação de trabalhos equivalentes.
+O caso real acima valida os downloads de mídia e a exportação em resolução
+original; a avaliação humana e o teste real de uma hora continuam pendentes.
+
 ## Fluxo local completo — correção em 23/10/2026
 
 O upload de um vídeo sintético de **300 segundos**, 1280×720/24 fps, foi executado

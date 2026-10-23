@@ -92,10 +92,12 @@ class Editor:
         self.approved, self.calls = approved, []
     def chat_json(self, system, user, schema, tick):
         request = json.loads(user); stage=request['stage']; self.calls.append(stage)
+        if stage == 'descoberta': return {'candidates':[dict(topic='Foco',context='Ressalva essencial',start=0,end=5,complete=True,conclusion='Resultado e lição')]}
+        if stage in ('triagem','contexto distante'): return {'decisions':[dict(id=i,action='advance',reason='Completo',score=5,related=[]) for i in request['targets']]}
         if stage == 'compreensão': return {'ideas':[{'topic':'Foco','context':'Uma ressalva sobre reuniões é essencial.','start':0,'end':5}]}
         if stage == 'busca editorial': return {'candidates':[{'topic':'Foco','ranges':[{'start':0,'end':5}]}]}
         if stage == 'seleção global': return {'indexes':[0]}
-        if stage == 'revisão': return dict(approved=self.approved, fidelity=5,coherence=5,completeness=5 if self.approved else 1,interest=4,feedback='Completo' if self.approved else 'Falta conclusão')
+        if stage == 'revisão': return dict(approved=self.approved, fidelity=5,coherence=5,completeness=5 if self.approved else 1,interest=4,feedback='Completo' if self.approved else 'Falta conclusão',single_topic=True,complete_ending=self.approved,preserves_meaning=True)
         return dict(title='Uma prioridade muda seu dia',rationale='Problema, mudança e resultado com a ressalva preservada.',
                     opening='O problema',development='A mudança e sua condição',ending='A lição',sentence_ids=list(range(6)))
 
@@ -136,26 +138,27 @@ def test_distant_context_preserves_chronology_without_filling_gaps():
         validate_edit(edit, sentences, [(0,207)], 5, 10)  # never trim the ending
 
 
-def test_diversity_keeps_best_reviewed_duplicate(tmp_path):
+def test_diversity_deduplicates_before_review(tmp_path):
     editor = Editor()
     original = editor.chat_json
     def call(system, user, schema, tick):
         payload = json.loads(user)
         stage = payload['stage']
-        if stage == 'busca editorial':
-            return {'candidates':[dict(topic=t, ranges=[dict(start=0,end=5)]) for t in ['Primeira', 'Melhor']]}
+        if stage == 'descoberta':
+            return {'candidates':[dict(topic=t, context='Ressalva',start=0,end=5,complete=True,conclusion='Lição') for t in ['Primeira', 'Melhor']]}
         if stage == 'seleção global':
             return {'indexes':[0,1]}
         result = original(system, user, schema, tick)
         if stage == 'montagem':
             result['title'] = payload['topic']
         if stage == 'revisão':
-            result['interest'] = 5 if payload['edit']['title'] == 'Melhor' else 4
+            result['interest'] = 4
         return result
     editor.chat_json = call
     clips = select_stories(transcript(), [(0,20)], dict(count=5,min_seconds=10,max_seconds=20), editor,tmp_path,lambda *a:None)
     assert len(clips) == 1
-    assert clips[0]['title'] == 'Melhor'
+    assert clips[0]['title'] == 'Primeira'
+    assert editor.calls.count('revisão') == 1
 
 
 @pytest.fixture
@@ -333,6 +336,7 @@ def test_old_heuristic_would_fill_incomplete_story(tmp_path):
     def call(system,user,schema,tick):
         stage=json.loads(user)['stage']
         result=original_call(system,user,schema,tick)
+        if stage=='descoberta':result['candidates'][0]['end']=2
         if stage=='compreensão':result['ideas'][0]['end']=2
         if stage=='busca editorial':result['candidates'][0]['ranges'][0]['end']=2
         if stage in ('montagem','correção única'):result['sentence_ids']=[0,1,2]

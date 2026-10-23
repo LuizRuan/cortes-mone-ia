@@ -3,6 +3,7 @@ import json
 import os
 import threading
 import time
+import psutil
 from dataclasses import asdict
 
 from .config import Cancelled
@@ -43,7 +44,20 @@ class Worker:
     def notify(self, key, stage, progress):
         if self.stop.is_set() or self.events.setdefault(key, threading.Event()).is_set():
             raise Cancelled()
-        self.store.update(key, stage=stage, progress=round(progress, 3))
+        changes = dict(stage=stage, progress=round(progress, 3))
+        now = time.monotonic()
+        if now - getattr(self, '_sample_at', 0) >= 2:
+            self._sample_at = now
+            rss = 0
+            parent = psutil.Process()
+            for process in [parent, *parent.children(recursive=True)]:
+                try:
+                    rss += process.memory_info().rss
+                except psutil.Error:
+                    pass
+            previous = self.store.get(key).get('peak_backend_rss_bytes',0)
+            changes['peak_backend_rss_bytes'] = max(previous, rss)
+        self.store.update(key, **changes)
 
     def loop(self):
         while not self.stop.is_set():
@@ -82,7 +96,10 @@ class Worker:
                 data = self.store.get(key)
                 timings = data.get('timings', {})
                 timings[kind + (':' + clip if clip else '')] = round(time.monotonic() - started, 2)
-                self.store.update(key, timings=timings)
+                changes = dict(timings=timings)
+                if kind == 'process' and data.get('attempt_started'):
+                    changes['elapsed_seconds'] = round(time.time()-data['attempt_started'],2)
+                self.store.update(key, **changes)
                 self.active = None
 
     def process(self, key):
@@ -90,8 +107,16 @@ class Worker:
         data = store.get(key)
         src = folder / ('source' + data['extension'])
         client = editor()  # Fail clearly before expensive work if not configured.
+        if hasattr(client, 'check_ready'):
+            client.check_ready()
         engine, local_model, whisper_name = transcription()
-        store.update(key, status='processing', error=None)
+        attempt_started = time.time()
+        attempts = data.get('attempts', [])
+        if data.get('attempt_started'):
+            attempts.append(dict(started=data['attempt_started'], seconds=data.get('elapsed_seconds'),
+                                 timings=data.get('timings',{}), editorial=data.get('editorial_metrics',{})))
+        store.update(key, status='processing', error=None, attempt_started=attempt_started,
+                     elapsed_seconds=0, units_done=0, units_total=0, first_preview_seconds=None, attempts=attempts)
         metrics = data.get('timings', {})
         def stage(name, fn):
             start = time.monotonic()
@@ -99,10 +124,31 @@ class Worker:
             metrics[name] = round(time.monotonic() - start, 2)
             store.update(key, timings=metrics)
             return result
+        def publish(clip):
+            old = {c['id']: c for c in store.get(key)['clips']}
+            clip = {**clip, **{k:v for k,v in old.get(clip['id'],{}).items()
+                              if k.startswith('preview_') or k.startswith('original_')}}
+            current = store.get(key)['clips']
+            if clip['id'] not in {c['id'] for c in current}:
+                store.update(key, clips=current + [clip])
+            dest = folder / f"{clip['id']}.preview.mp4"
+            if not dest.exists():
+                store.clip(key, clip['id'], preview_status='rendering')
+                stage('preview:' + clip['id'], lambda: render_edit(proxy, clip['parts'], dest, False,
+                      lambda f: self.notify(key, 'Preparando prévias', f)))
+            store.clip(key, clip['id'], preview_status='ready')
+            state = store.get(key)
+            count = sum(c['preview_status']=='ready' for c in state['clips'])
+            store.update(key, previews_ready=count,
+                         first_preview_seconds=state.get('first_preview_seconds') or round(time.time()-attempt_started,2))
+        def report(metrics):
+            store.update(key, editorial_metrics=metrics, units_done=metrics.get('units_done',0),
+                         units_total=metrics.get('units_total',0), elapsed_seconds=round(time.time()-attempt_started,2))
         info = probe(src)
         proxy, audio = stage('proxy', lambda: prepare(src, folder, info, lambda f: self.notify(key, 'Preparando vídeo', f)))
         transcript_key = hashlib.sha256((data['source_hash'] + whisper_name + '|pt|transcript-v1').encode()).hexdigest()[:20]
         transcript_path = folder / f'transcript-{transcript_key}.json'
+        store.update(key, transcript_cache_hit=transcript_path.exists())
         if transcript_path.exists():
             saved = json.loads(transcript_path.read_text(encoding='utf-8'))
             transcript = Transcript(saved['language'], [Sentence(s['start'], s['end'], s['text'], [Word(**w) for w in s['words']]) for s in saved['sentences']])
@@ -126,7 +172,9 @@ class Worker:
             keep = merge(keep + [(max(0, a - .15), min(info.duration, b + .15))
                                  for a, b in transcript.speech_intervals()])
             clips = stage('stories', lambda: select_stories(transcript, keep, data['params'], client, folder,
-                                                           lambda f, msg: self.notify(key, 'Montando histórias · ' + msg, f)))
+                                                           lambda f, msg: self.notify(key, 'Montando histórias · ' + msg, f),
+                                                           publish=publish, report=report,
+                                                           existing=[c for c in store.get(key)['clips'] if c['preview_status']=='ready']))
             atomic_json(clip_path, clips)
         # Merge persisted render statuses rather than overwriting finished exports.
         old = {c['id']: c for c in store.get(key)['clips']}
@@ -141,6 +189,7 @@ class Worker:
                       lambda f: self.notify(key, f'Preparando prévias · {i + 1} de {len(clips)}', (i + f) / len(clips))))
             store.clip(key, clip['id'], preview_status='ready')
         store.update(key, status='ready', progress=1, stage='Seus cortes estão prontos',
+                     elapsed_seconds=round(time.time()-attempt_started,2),
                      notice=f'Encontramos {len(clips)} {"história completa" if len(clips) == 1 else "histórias completas"} entre os {data["params"]["count"]} cortes pedidos.' if len(clips) < data['params']['count'] else None,
                      disk_bytes=sum(p.stat().st_size for p in folder.rglob('*') if p.is_file()))
 
@@ -155,3 +204,4 @@ class Worker:
                 self.store.clip(key, clip_id, original_progress=round(f, 3))
             render_edit(folder / ('source' + data['extension']), clip['parts'], dest, True, progress)
         self.store.clip(key, clip_id, original_status='ready', original_progress=1)
+        self.store.update(key, disk_bytes=sum(p.stat().st_size for p in folder.rglob('*') if p.is_file()))

@@ -44,6 +44,10 @@ type Project = {
   status: string;
   stage: string;
   progress: number;
+  elapsed_seconds?: number;
+  units_done?: number;
+  units_total?: number;
+  previews_ready?: number;
   clips: Clip[];
   error?: string;
   notice?: string;
@@ -698,6 +702,11 @@ function App() {
                     ))}
                   </div>
                   <progress value={project?.progress || 0} max={1} />
+                  <p aria-live="polite">
+                    {Math.floor((project?.elapsed_seconds || 0) / 60)} min {Math.floor((project?.elapsed_seconds || 0) % 60)} s decorridos
+                    {project?.units_total ? ` · ${project.units_done || 0}/${project.units_total} partes analisadas` : ""}
+                    {project?.previews_ready ? ` · ${project.previews_ready} prévias prontas` : ""}
+                  </p>
                 </div>
               )}
               {project &&
