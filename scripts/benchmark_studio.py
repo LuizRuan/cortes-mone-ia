@@ -41,7 +41,7 @@ def main():
     thread = threading.Thread(target=sample, daemon=True);thread.start()
     worker = Worker(store)
     started = time.monotonic()
-    with patch('cortes.studio_worker.Groq', fixture['Editor']), patch('cortes.studio_worker.transcribe', return_value=fixture['transcript']()):
+    with patch('cortes.studio_worker.editor', fixture['Editor']), patch('cortes.studio_worker.transcribe', return_value=fixture['transcript']()):
         worker.process(key)
         preview_seconds = time.monotonic() - started
         clip = store.get(key)['clips'][0]

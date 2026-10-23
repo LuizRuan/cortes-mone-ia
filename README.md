@@ -14,9 +14,10 @@ cd cortes-mone-ia
 Copy-Item .env.example .env
 ```
 
-Preencha `GROQ_API_KEY` no `.env`. O Studio usa o Groq para transcrição e edição
-narrativa. Os modelos são configuráveis por `CORTES_GROQ_WHISPER` e `CORTES_GROQ_LLM`.
-O modelo de edição precisa aceitar saída estruturada estrita. Referências:
+O `.env.example` seleciona o modo local. Para usar a nuvem, defina
+`CORTES_IA=groq` e preencha `GROQ_API_KEY` no `.env`. Nesse modo, os modelos são
+configuráveis por `CORTES_GROQ_WHISPER` e `CORTES_GROQ_LLM`.
+O modelo de edição na nuvem precisa aceitar saída estruturada estrita. Referências:
 [transcrição](https://console.groq.com/docs/speech-to-text) e
 [saída estruturada](https://console.groq.com/docs/structured-outputs).
 
@@ -27,15 +28,22 @@ histórias usa um modelo do [Ollama](https://ollama.com), tudo no computador:
 
 ```powershell
 winget install Ollama.Ollama
-ollama pull qwen3:1.7b
+ollama pull qwen3:4b
 ```
 
-O modelo é escolhido por `CORTES_OLLAMA_MODEL`. Referência de memória livre:
-`qwen3:1.7b` cerca de 2 GB, `qwen3:4b` cerca de 3,5 GB, `qwen3:8b` cerca de 6 GB.
-Modelos maiores montam histórias melhores. `CORTES_WHISPER_LOCAL` escolhe o
+No `.env`, use `CORTES_IA=local` e `CORTES_OLLAMA_MODEL=qwen3:4b`.
+O padrão `qwen3:4b` é uma opção inicial para computadores com 16 GB de RAM;
+essa escolha precisa ser avaliada com vídeos reais. O download tem cerca de
+[2,5 GB](https://ollama.com/library/qwen3:4b); o consumo de RAM é maior e depende
+do contexto. `qwen3:1.7b` é uma alternativa mais leve; `qwen3:8b` exige mais
+memória e processamento. Um modelo maior não garante cortes melhores.
+`CORTES_WHISPER_LOCAL` escolhe o
 Whisper (`tiny`, `base`, `small`, `medium`, `large-v3`). Sem placa de vídeo,
 o processamento local é bem mais lento que o Groq. No Docker, o contêiner
-acessa o Ollama do Windows por `host.docker.internal`.
+acessa o Ollama do Windows por `host.docker.internal`. Esta configuração não
+inclui um contêiner Ollama: instale e mantenha o aplicativo Ollama aberto no
+Windows. Internet é necessária no primeiro download dos modelos; depois o
+processamento local pode ser feito offline.
 
 ```powershell
 docker compose up -d --build

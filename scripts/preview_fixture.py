@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ['GROQ_API_KEY'] = 'synthetic-test-only'
 fixture = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'tests/test_studio.py'))
 import cortes.studio_worker as worker
-worker.Groq = fixture['Editor']
+worker.editor = fixture['Editor']
 worker.transcribe = lambda *a, **kw: fixture['transcript']()
 from cortes.studio_api import create_app
 import uvicorn

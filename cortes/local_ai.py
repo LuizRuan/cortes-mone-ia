@@ -50,8 +50,8 @@ def missing_setup() -> str | None:
 class Ollama:
     def __init__(self, http: httpx.Client | None = None):
         self.url = os.environ.get("CORTES_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
-        self.model = os.environ.get("CORTES_OLLAMA_MODEL", "qwen3:1.7b")
-        # Contexto de 8 mil tokens cobre uma janela de ~10 min de fala.
+        self.model = os.environ.get("CORTES_OLLAMA_MODEL", "").strip() or "qwen3:4b"
+        # Contexto configurável; o uso de memória cresce junto com este limite.
         self.context = int(os.environ.get("CORTES_OLLAMA_CTX", "8192"))
         # Sem limite de leitura: no processador uma resposta pode levar minutos.
         self.http = http or httpx.Client(timeout=httpx.Timeout(None, connect=10))

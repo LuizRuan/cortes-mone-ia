@@ -1,5 +1,30 @@
 # Validação da reformulação
 
+## Atualização do modo local — 23/10/2026
+
+A mudança de `origin/eduardo` foi incorporada à `Ruan` por cherry-pick, preservando
+a autoria. O Studio encaminha transcrição ao faster-whisper e montagem ao Ollama
+quando `CORTES_IA=local`. O modelo padrão foi alterado de `qwen3:1.7b` para
+`qwen3:4b`; a transcrição mantém `small` em CPU/int8 neste computador com
+i5-1335U, 16 GB de RAM e Intel Iris Xe integrada.
+
+Build Vite/TypeScript e validação de sintaxe do Compose aprovados. A suíte Python
+passou com **92 testes aprovados e 1 ignorado**. O fluxo integrado agora exercita
+explicitamente os provedores local e Groq, com transcrição e respostas editoriais
+simuladas. Os scripts de QA/benchmark também foram atualizados para simular o
+novo ponto de entrada do editor, evitando chamadas reais acidentais.
+
+A imagem Docker foi reconstruída e iniciada na porta 7860. Dentro do contêiner,
+a configuração confirmou `local`, Whisper `small` e `qwen3:4b`. A interface e
+`/api/health` responderam. O campo `ai_configured` confere a seleção do provedor;
+neste modo ele não comprova a disponibilidade do Ollama. A tentativa direta de
+acessar `127.0.0.1:11434/api/tags` falhou por conexão recusada.
+
+Esses testes não demonstram desempenho nem qualidade editorial do Qwen real.
+O Ollama não foi encontrado no PATH nem no diretório padrão de instalação do
+Windows. Nesta configuração ele roda no Windows, fora do Compose, e precisa
+estar instalado, aberto e com `qwen3:4b` baixado para processar vídeos reais.
+
 ## Escopo verificado
 
 - Suíte final dentro da imagem Docker: **88 testes aprovados, 1 ignorado**

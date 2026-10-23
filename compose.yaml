@@ -13,7 +13,7 @@ services:
       CORTES_LLM_MODEL: ${CORTES_LLM_MODEL:-claude-sonnet-5-5}
       CORTES_IA: ${CORTES_IA:-}
       CORTES_WHISPER_LOCAL: ${CORTES_WHISPER_LOCAL:-small}
-      CORTES_OLLAMA_MODEL: ${CORTES_OLLAMA_MODEL:-qwen3:1.7b}
+      CORTES_OLLAMA_MODEL: ${CORTES_OLLAMA_MODEL:-qwen3:4b}
       # O Ollama roda no Windows, fora do contêiner.
       CORTES_OLLAMA_URL: http://host.docker.internal:11434
       CORTES_OLLAMA_CTX: ${CORTES_OLLAMA_CTX:-8192}

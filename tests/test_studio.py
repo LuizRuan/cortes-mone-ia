@@ -167,12 +167,14 @@ def video(tmp_path):
     return path
 
 
-def test_full_pipeline_preview_original_range_and_reuse(client, video, monkeypatch):
+@pytest.mark.parametrize('ai_provider', ['local', 'groq'])
+def test_full_pipeline_preview_original_range_and_reuse(client, video, monkeypatch, ai_provider):
     import cortes.studio_worker as module
     monkeypatch.setattr(module,'editor',Editor)
     transcriber=Mock(return_value=transcript())
     monkeypatch.setattr(module,'transcribe',transcriber)
     monkeypatch.setenv('GROQ_API_KEY','fixture-key')
+    monkeypatch.setenv('CORTES_IA', ai_provider)
     key=upload(client,video.read_bytes())
     assert client.post(f'/api/projects/{key}/complete').status_code==200
     params={'count':5,'min_seconds':10,'max_seconds':20}
@@ -200,6 +202,9 @@ def test_full_pipeline_preview_original_range_and_reuse(client, video, monkeypat
     worker.export(key,clip['id'])
     assert original.stat().st_mtime_ns==oldtime
     transcriber.assert_called_once()
+    assert transcriber.call_args.args[1] == ai_provider
+    if ai_provider == 'local':
+        assert transcriber.call_args.kwargs['client'] is None
     assert client.get(url+'/original?download=true').headers['content-disposition'].startswith('attachment')
     assert client.delete(f'/api/projects/{key}').status_code==200
     assert not folder.exists()
